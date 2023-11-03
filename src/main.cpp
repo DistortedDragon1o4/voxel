@@ -34,8 +34,26 @@
 
 #define PI 4 * atan(1)
 
-int main() {
+int main(int argc, char** argv) {
 
+  if (argc != 2) {
+    std::cerr << "Please give proper command line arguments to specify the absolute path to project root.\n";
+    return -1;
+  }
+  std::string dir = argv[1];
+  std::string slash = "/";
+  if (dir.substr(dir.size() - 1, dir.size()) == slash)
+    dir = dir.substr(0, dir.size() - 1);
+  dir = dir + "/assets/verification";
+  std::ifstream directoryCheck(dir.c_str());
+  std::string checkString;
+  std::getline(directoryCheck, checkString);
+  directoryCheck.close();  
+  if (checkString != "ROOT_VERIFY") {
+      std::cerr << "You have failed!!! Enter the correct path next time (;\n";
+      return -1;
+  }
+  
   int height = 800;
   int width = 1200;
 

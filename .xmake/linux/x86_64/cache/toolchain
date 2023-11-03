@@ -1,62 +1,62 @@
 {
-    tool_target_imgui_linux_x86_64_cxx = {
-        program = "/usr/bin/gcc",
+    tool_target_stb_linux_x86_64_cxx = {
         toolname = "gcc",
+        program = "/usr/bin/gcc",
         toolchain_info = {
+            cachekey = "gcc_arch_x86_64_plat_linux",
             name = "gcc",
-            arch = "x86_64",
             plat = "linux",
-            cachekey = "gcc_arch_x86_64_plat_linux"
-        }
-    },
-    tool_target_stb_linux_x86_64_ar = {
-        program = "/usr/bin/ar",
-        toolname = "ar",
-        toolchain_info = {
-            name = "gcc",
-            arch = "x86_64",
-            plat = "linux",
-            cachekey = "gcc_arch_x86_64_plat_linux"
+            arch = "x86_64"
         }
     },
     tool_target_voxel_linux_x86_64_ld = {
-        program = "/usr/bin/g++",
         toolname = "gxx",
+        program = "/usr/bin/g++",
         toolchain_info = {
+            cachekey = "gcc_arch_x86_64_plat_linux",
             name = "gcc",
-            arch = "x86_64",
             plat = "linux",
-            cachekey = "gcc_arch_x86_64_plat_linux"
+            arch = "x86_64"
         }
     },
-    tool_target_imgui_linux_x86_64_ar = {
-        program = "/usr/bin/ar",
+    tool_target_stb_linux_x86_64_ar = {
         toolname = "ar",
+        program = "/usr/bin/ar",
         toolchain_info = {
+            cachekey = "gcc_arch_x86_64_plat_linux",
             name = "gcc",
-            arch = "x86_64",
             plat = "linux",
-            cachekey = "gcc_arch_x86_64_plat_linux"
+            arch = "x86_64"
         }
     },
     tool_target_voxel_linux_x86_64_cxx = {
-        program = "/usr/bin/gcc",
         toolname = "gcc",
+        program = "/usr/bin/gcc",
         toolchain_info = {
+            cachekey = "gcc_arch_x86_64_plat_linux",
             name = "gcc",
-            arch = "x86_64",
             plat = "linux",
-            cachekey = "gcc_arch_x86_64_plat_linux"
+            arch = "x86_64"
         }
     },
-    tool_target_stb_linux_x86_64_cxx = {
-        program = "/usr/bin/gcc",
+    tool_target_imgui_linux_x86_64_cxx = {
         toolname = "gcc",
+        program = "/usr/bin/gcc",
         toolchain_info = {
+            cachekey = "gcc_arch_x86_64_plat_linux",
             name = "gcc",
-            arch = "x86_64",
             plat = "linux",
-            cachekey = "gcc_arch_x86_64_plat_linux"
+            arch = "x86_64"
+        }
+    },
+    tool_target_imgui_linux_x86_64_ar = {
+        toolname = "ar",
+        program = "/usr/bin/ar",
+        toolchain_info = {
+            cachekey = "gcc_arch_x86_64_plat_linux",
+            name = "gcc",
+            plat = "linux",
+            arch = "x86_64"
         }
     }
 }

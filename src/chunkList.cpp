@@ -113,7 +113,7 @@ void ChunkList::assignChunkID() {
             int(floor(camPosY / CHUNK_SIZE)),
             int(floor(camPosZ / CHUNK_SIZE))
         };
-        if (cnt == 16) {
+        if (cnt == 4) {
             cnt = 0;
             int x = chunkMeshingQueue.empty();
         }
