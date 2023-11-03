@@ -28,7 +28,6 @@
 #include "../include/HUD.h"
 #include "../include/camera.h"
 #include "../include/chunkList.h"
-#include "../include/path.h"
 #include "../include/shaderCompiler.h"
 #include "../include/texture.h"
 
@@ -44,8 +43,8 @@ int main(int argc, char** argv) {
   std::string slash = "/";
   if (dir.substr(dir.size() - 1, dir.size()) == slash)
     dir = dir.substr(0, dir.size() - 1);
-  dir = dir + "/assets/verification";
-  std::ifstream directoryCheck(dir.c_str());
+  std::string dir1 = dir + "/assets/verification";
+  std::ifstream directoryCheck(dir1.c_str());
   std::string checkString;
   std::getline(directoryCheck, checkString);
   directoryCheck.close();  
@@ -85,7 +84,7 @@ int main(int argc, char** argv) {
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init("#version 460");
 
-  std::string path = PATH;
+  std::string path = dir + "/";
   std::string pathToFont = path + "assets/fonts/PixelOperator8.ttf";
   float size_pixels = 16.0;
   ImFont *programFont =
@@ -192,7 +191,7 @@ int main(int argc, char** argv) {
 
   Shader shaderProgram(vertexCode.c_str(), fragmentCode.c_str());
 
-  TextureArray tex(GL_TEXTURE0, "blocks/", 1, NUM_BLOCKS);
+  TextureArray tex(GL_TEXTURE0, "blocks/", 1, NUM_BLOCKS, dir + "/");
   tex.TexUnit(shaderProgram, "array", 0);
 
   const std::string vertexCodeHighlight =

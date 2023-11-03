@@ -9,7 +9,6 @@
 
 #include "shaderCompiler.h"
 #include "chunkDataContainer.h"
-#include "path.h"
 
 namespace std {
     typedef basic_string<unsigned char> ustring;
@@ -20,7 +19,7 @@ public:
     std::string assets = "assets/";
     GLuint ID;
     GLenum type;
-    Texture(const char* imagePath, GLenum texType, GLenum slot, GLenum format, GLenum pixelType);
+    Texture(const char* imagePath, GLenum texType, GLenum slot, GLenum format, GLenum pixelType, std::string path);
 
     void TexUnit(Shader& shader, const char* uniform, GLuint unit);
     void Bind();
@@ -33,7 +32,7 @@ public:
     std::string assets = "assets/";
     GLuint ID;
     GLenum type;
-    TextureArray(GLenum slot, std::string directory, int start, int stop);
+    TextureArray(GLenum slot, std::string directory, int start, int stop, std::string path);
 
     void TexUnit(Shader& shader, const char* uniform, GLuint unit);
     void Bind();

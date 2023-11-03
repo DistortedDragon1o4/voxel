@@ -1,1 +1,0 @@
-#define PATH "/home/bittu/Documents/Proj/voxel/"

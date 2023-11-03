@@ -1,10 +1,9 @@
 #include "../include/texture.h"
 #include "chunkList.h"
 
-Texture::Texture(const char* imagePath, GLenum texType, GLenum slot, GLenum format, GLenum pixelType) {
+Texture::Texture(const char* imagePath, GLenum texType, GLenum slot, GLenum format, GLenum pixelType, std::string path) {
     type = texType;
 
-    std::string path = PATH;
     std::string image = imagePath;
     image = path + assets + image;
 
@@ -53,12 +52,10 @@ void Texture::Delete() {
 }
 
 
-TextureArray::TextureArray(GLenum slot, std::string directory, int start, int stop) {
+TextureArray::TextureArray(GLenum slot, std::string directory, int start, int stop, std::string path) {
 	std::ustring imgData;
 	int widthImg, heightImg, numColCh;
 	stbi_set_flip_vertically_on_load(true);
-
-	std::string path = PATH;
 
 	for (int i = start; i < stop; i++) {
 		std::ustring data = stbi_load((path + assets + directory + std::to_string(i) + ".png").c_str(), &widthImg, &heightImg, &numColCh, 4);
