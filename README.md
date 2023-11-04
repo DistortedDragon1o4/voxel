@@ -21,6 +21,11 @@ It literally has no purpose to exist but it does. If you want to try it out do s
 - A lighting engine
 - A proper modular way to generate chunks
 
+## Screenshots:
+![Screenshot](https://raw.githubusercontent.com/DistortedDragon1o4/voxel/main/screenshots/0.png)
+![Screenshot](https://raw.githubusercontent.com/DistortedDragon1o4/voxel/main/screenshots/1.png)
+![Screenshot](https://raw.githubusercontent.com/DistortedDragon1o4/voxel/main/screenshots/3.png)
+
 ## Special Thanks:
 - Ofcourse the Khoros group for OpenGL and all
 - [FastNoise2](https://github.com/Auburn/FastNoise2) by Auburn for generating chunks
