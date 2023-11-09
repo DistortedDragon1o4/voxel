@@ -1,3 +1,5 @@
 build/
 .xmake/
 .git/
+compile_commands.json
+.cache/

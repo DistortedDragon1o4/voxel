@@ -12,6 +12,7 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
+#include <bitset>
 
 #include "buffers.h"
 #include "chunkDataContainer.h"
@@ -20,136 +21,180 @@
 
 #define NUM_THREADS 1
 
+struct Region {
+	short neighbours = 0;  // We use the six bits to denote which faces of the chunk it contains, order is posX, negX, posY, negY, posZ, negZ from right to left
+// std::vector<int> blockIndices;
+};
+
+// struct Frustum {
+//   void init(double width, double height, double FOV, glm::dvec3 up, glm::dvec3 camPosLocal, glm::dvec3 camDirLocal, double nearPlaneDistanceLocal, double farPlaneDistanceLocal);
+//   bool isInFrustum(glm::dvec3 coords);
+//   double FOV;
+//   double nearPlaneDistance;
+//   double farPlaneDistance;
+//   std::array<glm::dvec3, 4> frustumFaceNormals;   // In the order posX, negX, posY, negY
+//   glm::dvec3 camPos;
+//   glm::dvec3 camDir;
+// };
+
 class ChunkList {
 private:
-  Blocks blocks[NUM_BLOCKS];
+	std::array<Blocks, NUM_BLOCKS> blocks;
 
-  uint call[NUM_THREADS] = {0};
-  bool discardChunk[NUM_THREADS] = {0};
+	uint call[NUM_THREADS] = {0};
+	bool discardChunk[NUM_THREADS] = {0};
 
-  bool organiselck = 0;
+	bool organiselck = 0;
 
-  bool isInRenderedArea(const std::array<int, 3> &coords);
+	bool isInRenderedArea(const std::array<int, 3> &coords);
 
-  bool firstRun = 0;
-  int index[NUM_THREADS];
+	bool firstRun = 0;
+	int index[NUM_THREADS];
 
-  ChunkGen generator;
+	ChunkGen generator;
 
-  BlockTemplate solidBlock;
+	BlockTemplate solidBlock;
 
-  int loadedChunkCoord[RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE][5];
-  float chunkDistance[RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE];
-  std::vector<int> updateQueue;
+	int loadedChunkCoord[RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE][5];
+	float chunkDistance[RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE];
+	std::vector<int> updateQueue;
 
-  bool alreadyIn(std::vector<int> queue, int element);
+	bool alreadyIn(std::vector<int> queue, int element);
 
-  // functions associated with chunk building
-  void combineFace(int coordX, int coordY, int coordZ, int blockID, int threadID);
-  int blockAt(int coordX, int coordY, int coordZ, int threadID);
-  int globalBlockAt(int coordX, int coordY, int coordZ, int threadID);
-  int cachedBlockAt(int coordX, int coordY, int coordZ, int threadID);
-  void doIndices(int threadID);
-  int getIndex(int coordX, int coordY, int coordZ);
-  bool atBit(const int value, const unsigned int position);
-  int ambientOccIndex(int coordinates);
+	// functions associated with chunk building
+	void combineFace(int coordX, int coordY, int coordZ, int blockID, int threadID);
+	int blockAt(int coordX, int coordY, int coordZ, int threadID);
+	int globalBlockAt(int coordX, int coordY, int coordZ, int threadID);
+	int cachedBlockAt(int coordX, int coordY, int coordZ, int threadID);
+	void doIndices(int threadID);
+	int getIndex(int coordX, int coordY, int coordZ);
+	bool atBit(const int value, const unsigned int position);
+	int ambientOccIndex(int coordinates);
 
-  bool checkVisibility(glm::vec3 pos, glm::vec3 camDir, double FOV);
+	bool checkVisibility(glm::vec3 pos, glm::vec3 camDir, double FOV);
 
-  std::unordered_map<std::string, unsigned int> coordToIndexMap;
+	std::unordered_map<std::string, unsigned int> coordToIndexMap;
 
-  std::string coordsToString(std::array<int, 3> &coords);
+	std::string coordsToString(std::array<int, 3> &coords);
 
-  // std::vector<float> angleFromCamera = std::vector<float>((RENDER_DISTANCE +
-  // 1) * (RENDER_DISTANCE + 1) * (RENDER_DISTANCE + 1));
+	// std::vector<float> angleFromCamera = std::vector<float>((RENDER_DISTANCE +
+	// 1) * (RENDER_DISTANCE + 1) * (RENDER_DISTANCE + 1));
 
-  std::vector<short> mesh;
-  std::vector<uint> indices;
+	std::vector<short> mesh;
+	std::vector<uint> indices;
 
-  int chunkX[NUM_THREADS];
-  int chunkY[NUM_THREADS];
-  int chunkZ[NUM_THREADS];
+	int chunkX[NUM_THREADS];
+	int chunkY[NUM_THREADS];
+	int chunkZ[NUM_THREADS];
 
-  short cachedBlocks[NUM_THREADS]
-                    [(CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)];
+	short cachedBlocks[NUM_THREADS][(CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)];
 
-  double increment = 0.05;
+	double increment = 0.05;
 
-  glm::dvec3 previousCamPos;
+	glm::dvec3 previousCamPos;
 
-  std::queue<int> chunkMeshingQueue;
-  std::queue<std::array<int, 3>> BFSqueue;
-  void searchNeighbouringChunks(std::array<int, 3> chunkID);
-  void doBFS(std::array<int, 3> chunk);
+	std::queue<int> chunkMeshingQueue;
+	// std::queue<int> chunkGeneratingQueue;
+	std::queue<std::array<int, 3>> BFSqueue;
+	// std::queue<std::array<int, 3>> BFSqueueGenerator;
+	void searchNeighbouringChunks(std::array<int, 3> chunkID);
+	void doBFS(std::array<int, 3> chunk);
+	// void searchNeighbouringChunksGenerator(std::array<int, 3> chunkID);
+	// void doBFSGenerator(std::array<int, 3> chunk);
 
-  std::mutex chunkWorldContainerMutex;
+	std::array<bool, RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE> localOcclusionUnCulled = {0};
 
-  std::vector<float> highlightCube{
-      1.0001f,  1.0001f,  1.0001f,  -0.0001f, 1.0001f,  1.0001f,
-      -0.0001f, -0.0001f, 1.0001f,  1.0001f,  -0.0001f, 1.0001f,
-      1.0001f,  1.0001f,  -0.0001f, -0.0001f, 1.0001f,  -0.0001f,
-      -0.0001f, -0.0001f, -0.0001f, 1.0001f,  -0.0001f, -0.0001f};
-  std::vector<uint> highlightEBO{0, 1, 2, 3, 0, 4, 5, 6, 7,
-                                 4, 0, 1, 5, 6, 2, 3, 7, 4};
+	std::mutex chunkWorldContainerMutex;
+
+	std::vector<float> highlightCube {
+	1.0001f,  1.0001f,  1.0001f,  -0.0001f, 1.0001f,  1.0001f,
+	-0.0001f, -0.0001f, 1.0001f,  1.0001f,  -0.0001f, 1.0001f,
+	1.0001f,  1.0001f,  -0.0001f, -0.0001f, 1.0001f,  -0.0001f,
+	-0.0001f, -0.0001f, -0.0001f, 1.0001f,  -0.0001f, -0.0001f
+	};
+	std::vector<uint> highlightEBO{0, 1, 2, 3, 0, 4, 5, 6, 7, 4, 0, 1, 5, 6, 2, 3, 7, 4};
+
+
+
+	void checkPermeability(ChunkDataContainer &chunk);
+	std::queue<int> BFSqueuePermeability;
+	// bool checkIfInRegion(std::vector<Region> &regions, int blockIndex);
+	// bool checkIfInRegion(Region &region, int blockIndex);
+	void doBlockBFSforPermeability(int startIndex, Region &region, ChunkDataContainer &chunk);
+	void searchNeighbouringBlocks(Region &regions, int blockIndex, ChunkDataContainer &chunk);
+	int getBlockIndex(int x, int y, int z);
+	short facing(int index);
+	short generatePermeability(Region &region);
+
+	short permeabilityIndex(int a, int b);
+
+	bool isFrustumCulled(ChunkDataContainer &chunk);
+	double cosineModifiedHalfFOV;
+	double frustumOffset;
 
 public:
-  double camPosX = 0.0;
-  double camPosY = 0.0;
-  double camPosZ = 0.0;
+	// Frustum viewFrustum;
 
-  glm::dvec3 camDir;
+	double FOV;
+	double screenDiag;
+	double screenHeight;
 
-  glm::ivec3 blockPos;
-  glm::ivec3 prevBlockPos;
-  int blockPosIndex;
-  int prevBlockPosIndex;
+	double camPosX = 0.0;
+	double camPosY = 0.0;
+	double camPosZ = 0.0;
 
-  VAO highlightVAO;
-  int EBOsize = 36;
+	glm::dvec3 camDir;
 
-  bool run = 1;
+	glm::ivec3 blockPos;
+	glm::ivec3 prevBlockPos;
+	int blockPosIndex;
+	int prevBlockPosIndex;
 
-  bool isEdgeChunk(int coordX, int coordY, int coordZ);
+	VAO highlightVAO;
+	int EBOsize = 36;
 
-  std::vector<ChunkDataContainer> chunkWorldContainer =
-      std::vector<ChunkDataContainer>(RENDER_DISTANCE * RENDER_DISTANCE *
-                                      RENDER_DISTANCE);
+	bool run = 1;
 
-  // void lookingAtBlock();
-  void createHighlightVAO();
+	bool isEdgeChunk(int coordX, int coordY, int coordZ);
 
-  void updateChunk(int ChunkX, int ChunkY, int ChunkZ, bool surroundings);
+	std::vector<ChunkDataContainer> chunkWorldContainer = std::vector<ChunkDataContainer>(RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE);
 
-  void chunkManager();
+	// void lookingAtBlock();
+	void createHighlightVAO();
 
-  void calculateLoadedChunks();
-  void assignChunkID();
+	void updateChunk(int ChunkX, int ChunkY, int ChunkZ, bool surroundings);
 
-  void organiseChunks(int threadID);
-  void putInVAOs();
-  void generateChunks();
+	void chunkManager();
 
-  void updateLight(std::array<int, 3> &coords, int threadID);
-  void uploadLight(int index);
-  SSBO lightDataOnGPU;
+	void calculateLoadedChunks();
+	void assignChunkID();
 
-  int buildChunk(int threadID);
+	void organiseChunks(int threadID);
+	void putInVAOs();
+	void generateChunks();
 
-  void blockInit();
+	void updateLight(std::array<int, 3> &coords, int threadID);
+	void uploadLight(int index);
+	SSBO lightDataOnGPU;
 
-  Compute cullingProgram;
+	int buildChunk(int threadID);
 
-  SSBO chunkDataOnGPU;
-  void uploadData(int index);
-  void initDataSSBO();
-  void dispatchCompute(int index);
+	void blockInit();
 
-  void rayCastTillBlock(const glm::dvec3 ray, const glm::dvec3 position,
-                        const double limit);
+	Compute cullingProgram;
 
-  int currentBlock = 5;
-  void breakBlock();
-  void placeBlock();
+	SSBO chunkDataOnGPU;
+	void uploadData(int index);
+	void initDataSSBO();
+	void dispatchCompute(int index);
+
+	void rayCastTillBlock(const glm::dvec3 ray, const glm::dvec3 position, const double limit);
+
+	int currentBlock = 5;
+	void breakBlock();
+	void placeBlock();
+
+	short crntPerm = 0;
 };
 
 #endif

@@ -3,6 +3,7 @@
 ChunkGen::ChunkGen() {
     for (int i = 0; i < CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE; i++) {
         chunk.push_back(0);
+        bfs.push_back(false);
         light.push_back(16);
     }
 }
@@ -13,7 +14,7 @@ void ChunkGen::generateChunk(std::vector<short> &chunk, int coordX, int coordY, 
     std::vector <float> dataContainer3(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE); 
 
     fnGenerator->GenUniformGrid3D(dataContainer.data(), coordX * CHUNK_SIZE, coordY * CHUNK_SIZE, coordZ * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, frequency, seed);
-    fnGenerator2->GenUniformGrid3D(dataContainer2.data(), coordX * CHUNK_SIZE, coordY * CHUNK_SIZE, coordZ * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, frequency, seed);
+    fnGenerator2->GenUniformGrid3D(dataContainer2.data(), coordX * CHUNK_SIZE, coordY * CHUNK_SIZE, coordZ * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, frequency * 4, seed);
     fnGenerator3->GenUniformGrid3D(dataContainer3.data(), coordX * CHUNK_SIZE, coordY * CHUNK_SIZE, coordZ * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, frequency * 2, seed + 500);
 
     int index = 0;
@@ -37,6 +38,15 @@ void ChunkGen::generateChunk(std::vector<short> &chunk, int coordX, int coordY, 
                     if (dataContainer3[index] < 0)
                         chunk[(k * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + i] = 3;
                 }
+
+                // if (i == 5)
+                //     chunk.at((k * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + i) = 3;
+
+                // if (dataContainer3[index] < 0)
+                //     chunk.at((k * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + i) = 3;
+                // if ((i == 0 && j == 0) || (j == 0 && k == 0) || (k == 0 && i == 0) || (i == CHUNK_SIZE - 1 && j == CHUNK_SIZE - 1) || (j == CHUNK_SIZE - 1 && k == CHUNK_SIZE - 1) || (k == CHUNK_SIZE - 1 && i == CHUNK_SIZE - 1))
+                //     chunk.at((k * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + i) = 2;
+
                 /*if (coordY > -1)
                     chunk[(k * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + i] = 0;*/
                 index++;

@@ -1,3 +1,4 @@
+#include <bitset>
 #include <glm/glm.hpp>
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_glfw.h>
@@ -23,6 +24,7 @@
 #include <thread>
 
 #include "chunkDataContainer.h"
+#include "glm/trigonometric.hpp"
 #include "stb/stb_image.h"
 
 #include "../include/HUD.h"
@@ -272,8 +274,11 @@ int main(int argc, char** argv) {
   // glEnable(GL_BLEND);
 
   ChunkList chunkLister;
+  chunkLister.screenHeight = height;
+  chunkLister.screenDiag = sqrt((height * height) + (width * width));
+  chunkLister.FOV = glm::radians(90.0);
 
-  Camera camera(width, height, glm::dvec3(0.0, 0.0, 0.0));
+  Camera camera(width, height, glm::dvec3(7.0, 7.0, 7.0));
 
   camera.breakBlock = std::bind(&ChunkList::breakBlock, &chunkLister);
   camera.placeBlock = std::bind(&ChunkList::placeBlock, &chunkLister);
@@ -320,6 +325,9 @@ int main(int argc, char** argv) {
 
   while (!glfwWindowShouldClose(window)) {
     glfwGetFramebufferSize(window, &width, &height);
+
+    chunkLister.screenHeight = height;
+    chunkLister.screenDiag = sqrt((height * height) + (width * width));
 
     box.windowHeight = height;
     box.windowWidth = width;
@@ -382,9 +390,7 @@ int main(int argc, char** argv) {
 
     for (int i = 0; i < chunkLister.chunkWorldContainer.size(); i++) {
       // please remember to FOV here when changing FOV
-      if (chunkLister.chunkWorldContainer[i].renderlck == 0 &&
-          chunkLister.chunkWorldContainer[i].unCompiledChunk == 0 &&
-          chunkLister.chunkWorldContainer[i].EBOsize != 0) {
+      if (chunkLister.chunkWorldContainer[i].renderlck == 0 && chunkLister.chunkWorldContainer[i].unCompiledChunk == 0 && chunkLister.chunkWorldContainer[i].EBOsize != 0 && chunkLister.chunkWorldContainer.at(i).occlusionUnCulled == true && chunkLister.chunkWorldContainer.at(i).frustumVisible == true) {
         newChunkCount++;
         chunkLister.chunkWorldContainer[i].array.Bind();
         glUniform3iv(locChunkID, 1, &chunkLister.chunkWorldContainer[i].chunkID[0]);
@@ -432,11 +438,12 @@ int main(int argc, char** argv) {
     ImGui::Spacing();
     std::string fpsString = "FPS: " + std::to_string(fps);
     ImGui::Text("%s", fpsString.c_str());
+    std::bitset<16> x(chunkLister.crntPerm);
     std::string loadedChunkString =
         "Loaded Chunks: " + std::to_string(newChunkCount) + " / " +
         std::to_string(RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE);
     ImGui::Text("%s", loadedChunkString.c_str());
-    std::string cpsString = "CPS: " + std::to_string(cps);
+    std::string cpsString = "CPS: " + std::to_string(cps) + "     " + x.to_string();
     ImGui::Text("%s", cpsString.c_str());
     ImGui::Spacing();
     std::string coordinateString = "XYZ: " + std::to_string(camera.Position.x) +

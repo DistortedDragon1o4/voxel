@@ -20,18 +20,21 @@ void ChunkList::chunkManager() {
 }
 
 void ChunkList::calculateLoadedChunks() {
+    frustumOffset = (double(CHUNK_SIZE) / 2) / tan(FOV / 2);
+    cosineModifiedHalfFOV = cos(atan(screenDiag / (screenHeight / tan(FOV / 2))));
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     while (run == 1) {
+    	cosineModifiedHalfFOV = cos(atan(screenDiag / (screenHeight / tan(FOV / 2))));
         for (int i = 0; i < (RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE); i++) {
-            float distance = sqrt(pow((chunkWorldContainer[i].chunkID[0] * CHUNK_SIZE) - camPosX, 2) + pow((chunkWorldContainer[i].chunkID[1] * CHUNK_SIZE) - camPosY, 2) + pow((chunkWorldContainer[i].chunkID[2] * CHUNK_SIZE) - camPosZ, 2));
-            //float distance = abs((chunkWorldContainer[i].chunkID[0] * CHUNK_SIZE) - camPosX) + abs(2 * ((chunkWorldContainer[i].chunkID[1] * CHUNK_SIZE) - camPosY)) + abs((chunkWorldContainer[i].chunkID[2] * CHUNK_SIZE) - camPosZ);
+            // float distance = sqrt(pow((chunkWorldContainer[i].chunkID[0] * CHUNK_SIZE) - camPosX + (CHUNK_SIZE / 2), 2) + pow((chunkWorldContainer[i].chunkID[1] * CHUNK_SIZE) - camPosY + (CHUNK_SIZE / 2), 2) + pow((chunkWorldContainer[i].chunkID[2] * CHUNK_SIZE) - camPosZ + (CHUNK_SIZE / 2), 2));
+            float distance = abs((chunkWorldContainer[i].chunkID[0] * CHUNK_SIZE) - camPosX + (CHUNK_SIZE / 2)) + abs(((chunkWorldContainer[i].chunkID[1] * CHUNK_SIZE) - camPosY + (CHUNK_SIZE / 2))) + abs((chunkWorldContainer[i].chunkID[2] * CHUNK_SIZE) - camPosZ + (CHUNK_SIZE / 2));
             chunkWorldContainer[i].distance = distance;
+            chunkWorldContainer.at(i).frustumVisible = isFrustumCulled(chunkWorldContainer.at(i));
         }
     }
 }
 
 void ChunkList::assignChunkID() {
-    int cnt = 0;
     while (run == 1) {
         if (firstRun == 0) {
             int offsetX = fastFloat::fastFloor(camPosX / CHUNK_SIZE) - (RENDER_DISTANCE / 2);
@@ -105,6 +108,8 @@ void ChunkList::assignChunkID() {
                     chunkWorldContainer[i].renderlck = 1;
                     chunkWorldContainer[i].emptyChunk = 0;
                     chunkWorldContainer.at(i).inQueue = 0;
+                    chunkWorldContainer.at(i).isPermeableCheckDone = false;
+                    chunkWorldContainer.at(i).occlusionUnCulled = false;
                 }
             }   
         }
@@ -113,76 +118,25 @@ void ChunkList::assignChunkID() {
             int(floor(camPosY / CHUNK_SIZE)),
             int(floor(camPosZ / CHUNK_SIZE))
         };
-        if (cnt == 4) {
-            cnt = 0;
-            int x = chunkMeshingQueue.empty();
-        }
-        cnt++;
         // const auto start = std::chrono::high_resolution_clock::now();
-        int x = BFSqueue.empty();
-        // for (int i = 0; i < (RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE); i++)
-        //     chunkWorldContainer.at(i).inQueue = 0;
+        BFSqueue.empty();
+        
         doBFS(cameraChunk);
+
+        for (int i = 0; i < (RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE); i++) {
+            chunkWorldContainer.at(i).inBFSqueue = 0;
+            chunkWorldContainer.at(i).occlusionUnCulled = localOcclusionUnCulled.at(i);
+            localOcclusionUnCulled.at(i) = false;
+        }
         // const auto end = std::chrono::high_resolution_clock::now();
  
         // const std::chrono::duration<double> diff = end - start;
         // std::cout << "BFS search: " << diff << "\n";
+
+        crntPerm = chunkWorldContainer.at(getIndex(cameraChunk.at(0), cameraChunk.at(1), cameraChunk.at(2))).permeability;
+
+
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
-    }
-}
-
-void ChunkList::doBFS(std::array<int, 3> chunk) {
-    std::array<int, 3> crntChunk;
-    bool first = true;
-    do {
-        if (first) {
-            crntChunk = chunk;
-            first = false;
-        } else {
-            crntChunk = BFSqueue.front();
-            BFSqueue.pop();
-        }
-        int crntChunkIndex = getIndex(crntChunk.at(0), crntChunk.at(1), crntChunk.at(2));
-        if (crntChunkIndex == -1) {
-            std::cout << "I died\n";
-            return;
-        }
-        if (chunkWorldContainer.at(crntChunkIndex).unCompiledChunk == true) {
-            chunkMeshingQueue.push(crntChunkIndex);
-            chunkWorldContainer.at(crntChunkIndex).inQueue = true;
-        }
-        searchNeighbouringChunks(crntChunk);
-    } while (BFSqueue.size() > 0);
-}
-
-void ChunkList::searchNeighbouringChunks(std::array<int, 3> chunkID) {
-    std::array<unsigned int, 6> neighbouringChunkIndices;
-
-    // const auto start = std::chrono::high_resolution_clock::now();
-    neighbouringChunkIndices.at(0) = getIndex(chunkID.at(0) + 1, chunkID.at(1), chunkID.at(2));
-
-    neighbouringChunkIndices.at(2) = getIndex(chunkID.at(0) - 1, chunkID.at(1), chunkID.at(2));
-
-    neighbouringChunkIndices.at(1) = getIndex(chunkID.at(0), chunkID.at(1), chunkID.at(2) + 1);
-
-    neighbouringChunkIndices.at(3) = getIndex(chunkID.at(0), chunkID.at(1), chunkID.at(2) - 1);
-
-    neighbouringChunkIndices.at(4) = getIndex(chunkID.at(0), chunkID.at(1) + 1, chunkID.at(2));
-
-    neighbouringChunkIndices.at(5) = getIndex(chunkID.at(0), chunkID.at(1) - 1, chunkID.at(2));
-    // const auto end = std::chrono::high_resolution_clock::now();
- 
-    // const std::chrono::duration<double> diff = end - start;
-    // std::cout << "6 hashmap queries: " << diff << "\n";
-    
-    for (int i = 0; i < 6; i++) {
-        if (neighbouringChunkIndices.at(i) != -1) {
-            int j = neighbouringChunkIndices.at(i);
-            if (chunkWorldContainer.at(j).inQueue == false/* && isEdgeChunk(chunkWorldContainer.at(j).chunkID.at(0), chunkWorldContainer.at(j).chunkID.at(1), chunkWorldContainer.at(j).chunkID.at(2)) == 0*/) {
-                BFSqueue.push(chunkWorldContainer.at(j).chunkID);
-                chunkWorldContainer.at(j).inQueue = true;
-            }
-        }
     }
 }
 
@@ -211,7 +165,7 @@ bool ChunkList::isEdgeChunk(int coordX, int coordY, int coordZ) {
 }
 
 void ChunkList::organiseChunks(int threadID) {
-    std::this_thread::sleep_for(std::chrono::seconds(3));
+    std::this_thread::sleep_for(std::chrono::seconds(5));
     while (run == 1) {
         if (organiselck == 0) {
             // int leastIndex = 0;
@@ -231,9 +185,10 @@ void ChunkList::organiseChunks(int threadID) {
             
             if (chunkMeshingQueue.size() > 0) {
                 index[threadID] = chunkMeshingQueue.front();
+                if (chunkWorldContainer.at(index[threadID]).unCompiledChunk == true && chunkWorldContainer.at(index[threadID]).unGeneratedChunk == false)
+                    iLetYouRun = true;
                 chunkMeshingQueue.pop();
-                chunkWorldContainer[index[threadID]].inQueue = 0;
-                iLetYouRun = true;
+                chunkWorldContainer.at(index[threadID]).inQueue = 0;
             }
             
             if (iLetYouRun) {
@@ -244,7 +199,14 @@ void ChunkList::organiseChunks(int threadID) {
                 if ((chunkWorldContainer[index[threadID]].unCompiledChunk == 1 || chunkWorldContainer[index[threadID]].forUpdate == 1) && chunkWorldContainer[index[threadID]].unGeneratedChunk == 0) {
                     chunkWorldContainer[index[threadID]].vaolck = 1;
                     updateLight(chunkWorldContainer[index[threadID]].chunkID, threadID);
+                    // const auto start = std::chrono::high_resolution_clock::now();
+
                     chunkWorldContainer[index[threadID]].EBOsize = buildChunk(threadID);
+
+	                // const auto end = std::chrono::high_resolution_clock::now();
+	 
+	                // const std::chrono::duration<double> diff = end - start;
+	                // std::cout << "Generating a chunk: " << diff << "\n";
                     chunkWorldContainer[index[threadID]].vaolck = 0;
                 } else {
                     chunkWorldContainer[index[threadID]].vaolck = 1;
@@ -265,15 +227,47 @@ void ChunkList::generateChunks() {
                     index = i;
                 }
             }
+
+			// bool iLetYouRun = false;
+            
+            // if (chunkGeneratingQueue.size() > 0) {
+            //     index = chunkGeneratingQueue.front();
+            //     //if (chunkWorldContainer.at(index).inGeneratorQueue) {
+            //         iLetYouRun = true;
+            //     //}
+            //     chunkGeneratingQueue.pop();
+            //     chunkWorldContainer.at(index).inGeneratorQueue = 0;
+            // }
+
+
             //std::cout << chunkWorldContainer[index].unGeneratedChunk <<  " Gen || Index: " << index << " || X Y Z: " << chunkWorldContainer[index].chunkID[0] << " " << chunkWorldContainer[index].chunkID[1] << " " << chunkWorldContainer[index].chunkID[2] << " || Distance: " << chunkWorldContainer[index].distance << "\n";
             if (chunkWorldContainer[index].unGeneratedChunk == 1) {
+
                 generator.initChunk(chunkWorldContainer[index].chunkData);
                 generator.generateChunk(chunkWorldContainer[index].chunkData, chunkWorldContainer[index].chunkID[0], chunkWorldContainer[index].chunkID[1], chunkWorldContainer[index].chunkID[2]);
+                
+                // const auto start = std::chrono::high_resolution_clock::now();
+
+                chunkWorldContainer.at(index).chunkDataBFSvisited = generator.bfs;
+                checkPermeability(chunkWorldContainer.at(index));
+
+                // const auto end = std::chrono::high_resolution_clock::now();
+ 
+                // const std::chrono::duration<double> diff = end - start;
+                // std::cout << "Generating a chunk: " << diff << "\n";
+
                 chunkWorldContainer[index].unGeneratedChunk = 0;
                 chunkWorldContainer[index].unCompiledChunk = 1;
+
             }
         }
     }
+}
+
+BlockCoords::BlockCoords(int index) {
+    x = index / (CHUNK_SIZE * CHUNK_SIZE);
+    y = (index / CHUNK_SIZE) % CHUNK_SIZE;
+    z = index % CHUNK_SIZE;
 }
 
 void ChunkList::putInVAOs() {

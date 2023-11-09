@@ -79,9 +79,9 @@ void Camera::inputs(GLFWwindow* window) {
 
 		sphericalOrientation.y -= rotX;
 		if (sphericalOrientation.y >= (std::numbers::pi / 2))
-			sphericalOrientation.y = (std::numbers::pi / 2);
+			sphericalOrientation.y = (std::numbers::pi / 2) - 0.000001;
 		else if (sphericalOrientation.y < -(std::numbers::pi / 2))
-			sphericalOrientation.y = -(std::numbers::pi / 2);
+			sphericalOrientation.y = -(std::numbers::pi / 2) + 0.000001;
 
 		Orientation.x = cos(sphericalOrientation.x) * cos(sphericalOrientation.y);
 		Orientation.y = sin(sphericalOrientation.y);

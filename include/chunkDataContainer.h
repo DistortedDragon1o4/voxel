@@ -10,6 +10,19 @@
 #define RENDER_DISTANCE 24
 #define CHUNK_SIZE 16
 
+struct ChunkCoords {
+    int x;
+    int y;
+    int z;
+};
+
+struct BlockCoords {
+    BlockCoords(int index);
+    int x;
+    int y;
+    int z;
+};
+
 struct ChunkDataContainer {
 	// stores the blockID of each block in the chunk
 	std::vector<short> chunkData;
@@ -23,14 +36,49 @@ struct ChunkDataContainer {
 	std::array <int, 3> chunkID;
 	float distance;
 	bool inQueue = 0;
-	bool inGeneratorQueue = 0;
+    bool inBFSqueue = 0;
+	// bool inGeneratorQueue = 0;
+    // bool inGenBFSqueue = 0;
 	bool emptyChunk = 1;
 	bool unCompiledChunk = 1;
 	bool unGeneratedChunk = 1;
 	bool vaolck = 0;
 	bool renderlck = 0;
 	bool forUpdate = 0;
+
+    bool frustumVisible = false;
+
+    bool occlusionUnCulled = false;
+
+    std::vector<bool> chunkDataBFSvisited = std::vector<bool>(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
+    bool isPermeableCheckDone = 0;
+    short permeability = 0;
 };
+
+// Format for permeability, from rightmost to left bit
+
+// i dont know
+
+
+// posY - posX
+// posY - negX
+// posY - posZ
+// posY - negZ
+
+// posX - posZ
+// posZ - negX
+// negX - negZ
+// negZ - posX
+
+// negY - posX
+// negY - negX
+// negY - posZ
+// negY - negZ
+
+// posX - negX
+// posY - negY
+// posZ - negZ
+
 
 struct BlockTemplate {
     // vertex format:

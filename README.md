@@ -14,9 +14,9 @@ It literally has no purpose to exist but it does. If you want to try it out do s
 - A very weird and barebones implementation of a day/night cycle shader
 - Block breaking and placing (though temporarily broken)
 - Also has a cool HUD powered by ImGUI
+- Optimisations like frustum culling and "occlusion culling" (but the time taken to generate and compute visibility of chunks has increased)
 
 ## Stuff not there but will be there soon(ish):
-- Optimisations like frustum culling and occlusion culling
 - A proper json file format to define blocks, so you can have your own blocks
 - A lighting engine
 - A proper modular way to generate chunks
@@ -32,7 +32,7 @@ It literally has no purpose to exist but it does. If you want to try it out do s
 - [stb](https://github.com/nothings/stb) by nothings for giving a way to import images
 - [Dear ImGui](https://github.com/ocornut/imgui) by ocornut for helping me do the thing i was the most nervous about, GUIs
 - Minecraft for the inspiration
-- [Sodium](https://github.com/CaffeineMC/sodium-fabric) by CaffeineMC for making me optimise my voxel engine like crazy
+- [Sodium](https://github.com/CaffeineMC/sodium-fabric) by CaffeineMC for inspiring me to optimise my voxel engine like crazy
 
 ## Running:
 First of all, don't
