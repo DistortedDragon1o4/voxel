@@ -70,7 +70,7 @@ private:
 	bool atBit(const int value, const unsigned int position);
 	int ambientOccIndex(int coordinates);
 
-	bool checkVisibility(glm::vec3 pos, glm::vec3 camDir, double FOV);
+	// bool checkVisibility(glm::vec3 pos, glm::vec3 camDir, double FOV);
 
 	ankerl::unordered_dense::map<long, unsigned int> coordToIndexMap;
 
@@ -96,6 +96,10 @@ private:
 	// std::queue<int> chunkGeneratingQueue;
 	std::queue<ChunkCoords> BFSqueue;
 	// std::queue<std::array<int, 3>> BFSqueueGenerator;
+
+	std::queue<int> chunkUpdateQueue;
+
+
 	void searchNeighbouringChunks(const ChunkCoords chunkID);
 	void doBFS(const ChunkCoords chunk);
 	// void searchNeighbouringChunksGenerator(std::array<int, 3> chunkID);
@@ -160,7 +164,7 @@ public:
 	// void lookingAtBlock();
 	void createHighlightVAO();
 
-	void updateChunk(int ChunkX, int ChunkY, int ChunkZ, bool surroundings);
+	void updateChunk(ChunkCoords chunkCoords, bool surroundings);
 
 	void chunkManager();
 

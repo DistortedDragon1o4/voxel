@@ -5,6 +5,7 @@
 ![GitHub stars](https://img.shields.io/github/stars/DistortedDragon1o4/voxel)
 
 This is an experimental voxel engine written by in C++
+
 It literally has no purpose to exist but it does. If you want to try it out do so at your own risk.
 
 ## Features:
@@ -12,7 +13,7 @@ It literally has no purpose to exist but it does. If you want to try it out do s
 - The world is infinite
 - Has a sort of block format, which enables complex block models, but there is no way to import models so good luck writing that in code
 - A very weird and barebones implementation of a day/night cycle shader
-- Block breaking and placing (though temporarily broken)
+- Block breaking and placing
 - Also has a cool HUD powered by ImGUI
 - Optimisations like frustum culling and "occlusion culling" (but the time taken to generate and compute visibility of chunks has increased)
 

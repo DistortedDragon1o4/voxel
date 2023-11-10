@@ -19,6 +19,7 @@ struct ChunkCoords {
 
 struct BlockCoords {
     BlockCoords(int index);
+    BlockCoords(int _x, int _y, int _z);
     int x;
     int y;
     int z;

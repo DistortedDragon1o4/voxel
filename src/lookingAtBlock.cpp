@@ -1,6 +1,7 @@
 #include "../include/chunkList.h"
 #include "chunkDataContainer.h"
 #include "chunkGenerator.h"
+#include "fastFloat.h"
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
 
@@ -174,36 +175,26 @@ void ChunkList::rayCastTillBlock(const glm::dvec3 ray, const glm::dvec3 position
 }
 
 void ChunkList::breakBlock() {
-    std::array<int, 3> chunkCoords {
-        int(floor(float(blockPos.x) / CHUNK_SIZE)),
-        int(floor(float(blockPos.y) / CHUNK_SIZE)),
-        int(floor(float(blockPos.z) / CHUNK_SIZE))
-    };
-    std::array<int, 3> coords {
-        int(floor(blockPos.x)) - (CHUNK_SIZE * chunkCoords.at(0)),
-        int(floor(blockPos.y)) - (CHUNK_SIZE * chunkCoords.at(1)),
-        int(floor(blockPos.z)) - (CHUNK_SIZE * chunkCoords.at(2))
-    };
+    ChunkCoords chunkCoords;
+    chunkCoords.x = int(floor(float(blockPos.x) / CHUNK_SIZE));
+    chunkCoords.y = int(floor(float(blockPos.y) / CHUNK_SIZE));
+    chunkCoords.z = int(floor(float(blockPos.z) / CHUNK_SIZE));
+    BlockCoords coords(fastFloat::mod(blockPos.x, CHUNK_SIZE), fastFloat::mod(blockPos.y, CHUNK_SIZE), fastFloat::mod(blockPos.z, CHUNK_SIZE));
     if (blockPosIndex >= 0) {
-        chunkWorldContainer.at(blockPosIndex).chunkData.at((coords.at(0) * CHUNK_SIZE * CHUNK_SIZE) + (coords.at(1) * CHUNK_SIZE) + coords.at(2)) = 0;
-        updateChunk(chunkCoords.at(0), chunkCoords.at(1), chunkCoords.at(2), 1);
+        chunkWorldContainer.at(blockPosIndex).chunkData.at((coords.x * CHUNK_SIZE * CHUNK_SIZE) + (coords.y * CHUNK_SIZE) + coords.z) = 0;
+        updateChunk(chunkCoords, 1);
     }
 }
 
 void ChunkList::placeBlock() {
-    std::array<int, 3> chunkCoords {
-        int(floor(float(prevBlockPos.x) / CHUNK_SIZE)),
-        int(floor(float(prevBlockPos.y) / CHUNK_SIZE)),
-        int(floor(float(prevBlockPos.z) / CHUNK_SIZE))
-    };
-    std::array<int, 3> coords {
-        int(floor(prevBlockPos.x)) - (CHUNK_SIZE * chunkCoords.at(0)),
-        int(floor(prevBlockPos.y)) - (CHUNK_SIZE * chunkCoords.at(1)),
-        int(floor(prevBlockPos.z)) - (CHUNK_SIZE * chunkCoords.at(2))
-    };
+    ChunkCoords chunkCoords;
+    chunkCoords.x = int(floor(float(blockPos.x) / CHUNK_SIZE));
+    chunkCoords.y = int(floor(float(blockPos.y) / CHUNK_SIZE));
+    chunkCoords.z = int(floor(float(blockPos.z) / CHUNK_SIZE));
+    BlockCoords coords(fastFloat::mod(prevBlockPos.x, CHUNK_SIZE), fastFloat::mod(prevBlockPos.y, CHUNK_SIZE), fastFloat::mod(prevBlockPos.z, CHUNK_SIZE));
     if (prevBlockPosIndex >= 0) {
-        chunkWorldContainer.at(prevBlockPosIndex).chunkData.at((coords.at(0) * CHUNK_SIZE * CHUNK_SIZE) + (coords.at(1) * CHUNK_SIZE) + coords.at(2)) = currentBlock;
-        updateChunk(chunkCoords.at(0), chunkCoords.at(1), chunkCoords.at(2), 1);
+        chunkWorldContainer.at(prevBlockPosIndex).chunkData.at((coords.x * CHUNK_SIZE * CHUNK_SIZE) + (coords.y * CHUNK_SIZE) + coords.z) = currentBlock;
+        updateChunk(chunkCoords, 1);
     }
 }
 

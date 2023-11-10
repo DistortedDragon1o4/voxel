@@ -145,6 +145,8 @@ void ChunkList::doBFS(const ChunkCoords chunk) {
             return;
         }
         ChunkDataContainer &chunkObj = chunkWorldContainer.at(crntChunkIndex);
+        if (chunkObj.unGeneratedChunk == false && chunkObj.isPermeableCheckDone == false)
+            checkPermeability(chunkObj);
         if (chunkObj.unCompiledChunk == true && chunkObj.frustumVisible == true && chunkObj.unGeneratedChunk == false && chunkObj.isPermeableCheckDone == true && chunkObj.inQueue == false && isEdgeChunk(crntChunk.x, crntChunk.y, crntChunk.z) == false) {
             chunkMeshingQueue.push(crntChunkIndex);
             chunkObj.inQueue = true;
@@ -192,7 +194,7 @@ void ChunkList::searchNeighbouringChunks(const ChunkCoords chunkID) {
     for (int i = 0; i < 6; i++) {
         if (neighbouringChunkIndices.at(i) != -1) {
             ChunkDataContainer &chunk = chunkWorldContainer.at(neighbouringChunkIndices.at(i));
-            if (chunk.inBFSqueue == false && chunk.isPermeableCheckDone == true && atBit(backwardChunkIndices, i) == 0) {
+            if (chunk.inBFSqueue == false && atBit(backwardChunkIndices, i) == 0) {
                 bool willAddToQueue = false;
                 for (int j = 0; j < 6; j++)
                     if (j != i)

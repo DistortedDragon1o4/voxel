@@ -169,12 +169,17 @@ void ChunkList::organiseChunks(int threadID) {
             
             bool iLetYouRun = false;
             
-            if (chunkMeshingQueue.size() > 0) {
+            if (chunkUpdateQueue.size() > 0) {
+            	index[threadID] = chunkUpdateQueue.front();
+                if (chunkWorldContainer.at(index[threadID]).unGeneratedChunk == false)
+                    iLetYouRun = true;
+                chunkUpdateQueue.pop();
+            } else if (chunkMeshingQueue.size() > 0) {
                 index[threadID] = chunkMeshingQueue.front();
                 if (chunkWorldContainer.at(index[threadID]).unCompiledChunk == true && chunkWorldContainer.at(index[threadID]).unGeneratedChunk == false)
                     iLetYouRun = true;
                 chunkMeshingQueue.pop();
-                chunkWorldContainer.at(index[threadID]).inQueue = 0;
+                chunkWorldContainer.at(index[threadID]).inQueue = false;
             }
             
             if (iLetYouRun) {
@@ -234,7 +239,7 @@ void ChunkList::generateChunks() {
                 
                 // const auto start = std::chrono::high_resolution_clock::now();
 
-                checkPermeability(chunkWorldContainer.at(index));
+                // checkPermeability(chunkWorldContainer.at(index));
 
                 // const auto end = std::chrono::high_resolution_clock::now();
  
@@ -253,6 +258,12 @@ BlockCoords::BlockCoords(int index) {
     x = index / (CHUNK_SIZE * CHUNK_SIZE);
     y = (index / CHUNK_SIZE) % CHUNK_SIZE;
     z = index % CHUNK_SIZE;
+}
+
+BlockCoords::BlockCoords(int _x, int _y, int _z) {
+    x = _x;
+    y = _y;
+    z = _z;
 }
 
 void ChunkList::putInVAOs() {
@@ -290,33 +301,35 @@ bool ChunkList::alreadyIn(std::vector <int> queue, int element) {
     return 1;
 }
 
-void ChunkList::updateChunk(int ChunkX, int ChunkY, int ChunkZ, bool surroundings) {
+void ChunkList::updateChunk(ChunkCoords chunkCoords, bool surroundings) {
+	int index = getIndex(chunkCoords);
+	if (chunkWorldContainer.at(index).forUpdate == false) {
+		// checkPermeability(chunkWorldContainer.at(index));
+		chunkWorldContainer.at(index).forUpdate = true;
+		chunkUpdateQueue.push(index);
+	}
     if (surroundings) {
-        for (int i = 0; i < chunkWorldContainer.size(); i++) {
-            if (chunkWorldContainer[i].chunkID.x == ChunkX && chunkWorldContainer[i].chunkID.y == ChunkY && chunkWorldContainer[i].chunkID.z == ChunkZ + 1 && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
-                chunkWorldContainer[i].forUpdate = 1;
-            }
-            if (chunkWorldContainer[i].chunkID.x == ChunkX && chunkWorldContainer[i].chunkID.y == ChunkY && chunkWorldContainer[i].chunkID.z == ChunkZ - 1 && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
-                chunkWorldContainer[i].forUpdate = 1;
-            }
-            if (chunkWorldContainer[i].chunkID.x == ChunkX && chunkWorldContainer[i].chunkID.y == ChunkY + 1 && chunkWorldContainer[i].chunkID.z == ChunkZ && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
-                chunkWorldContainer[i].forUpdate = 1;
-            }
-            if (chunkWorldContainer[i].chunkID.x == ChunkX && chunkWorldContainer[i].chunkID.y == ChunkY - 1 && chunkWorldContainer[i].chunkID.z == ChunkZ && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
-                chunkWorldContainer[i].forUpdate = 1;
-            }
-            if (chunkWorldContainer[i].chunkID.x == ChunkX + 1 && chunkWorldContainer[i].chunkID.y == ChunkY && chunkWorldContainer[i].chunkID.z == ChunkZ && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
-                chunkWorldContainer[i].forUpdate = 1;
-            }
-            if (chunkWorldContainer[i].chunkID.x == ChunkX - 1 && chunkWorldContainer[i].chunkID.y == ChunkY && chunkWorldContainer[i].chunkID.z == ChunkZ && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
-                chunkWorldContainer[i].forUpdate = 1;
-            }
-        }
-    }
-    for (int i = 0; i < chunkWorldContainer.size(); i++) {
-        if (chunkWorldContainer[i].chunkID.x == ChunkX && chunkWorldContainer[i].chunkID.y == ChunkY && chunkWorldContainer[i].chunkID.z == ChunkZ && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
-            chunkWorldContainer[i].forUpdate = 1;
-            break;
-        }
+    	std::array<unsigned int, 6> neighbouringChunkIndices;
+
+	    neighbouringChunkIndices.at(0) = getIndex(chunkCoords.x + 1, chunkCoords.y, chunkCoords.z);
+
+	    neighbouringChunkIndices.at(1) = getIndex(chunkCoords.x - 1, chunkCoords.y, chunkCoords.z);
+
+	    neighbouringChunkIndices.at(4) = getIndex(chunkCoords.x, chunkCoords.y, chunkCoords.z + 1);
+
+	    neighbouringChunkIndices.at(5) = getIndex(chunkCoords.x, chunkCoords.y, chunkCoords.z - 1);
+
+	    neighbouringChunkIndices.at(2) = getIndex(chunkCoords.x, chunkCoords.y + 1, chunkCoords.z);
+
+	    neighbouringChunkIndices.at(3) = getIndex(chunkCoords.x, chunkCoords.y - 1, chunkCoords.z);
+
+	    for (int chunkIndex : neighbouringChunkIndices) {
+	    	if (chunkIndex != -1) {
+	    		if (chunkWorldContainer.at(chunkIndex).forUpdate == false) {
+		    		chunkUpdateQueue.push(chunkIndex);
+		    		chunkWorldContainer.at(chunkIndex).forUpdate = true;
+	    		}
+	    	}
+	    }
     }
 }
