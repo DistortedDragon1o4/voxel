@@ -6,30 +6,38 @@
 #include <vector>
 
 void ChunkList::doIndices(int threadID) {
-    std::vector<uint> crntEBO;
+    std::array<uint, 6> crntEBO = solidBlock.dataEBO;
     for (int i = 0; i < 6; i++) {
-        crntEBO.push_back(call[threadID] + solidBlock.dataEBO[i]);
+        crntEBO[i] += call[threadID];
     }
     chunkWorldContainer[index[threadID]].indices.insert(chunkWorldContainer[index[threadID]].indices.end(), crntEBO.begin(), crntEBO.end());
     call[threadID] += 4;
 }
 
-int ChunkList::getIndex(int coordX, int coordY, int coordZ) {
-    /*for (int i = 0; i < chunkWorldContainer.size(); i++)
-        if (chunkWorldContainer[i].chunkID[0] == coordX && chunkWorldContainer[i].chunkID[1] == coordY && chunkWorldContainer[i].chunkID[2] == coordZ && chunkWorldContainer[i].unGeneratedChunk == 0)
-            return i;*/
-    /*int x = coordX - offsetX;
-    int y = coordY - offsetY;
-    int z = coordZ - offsetZ;
-    int index = (x * RENDER_DISTANCE * RENDER_DISTANCE) + (y * RENDER_DISTANCE) + z;
-    if (index < 0 || index >= RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE)
-        return -1;
-    while (loadedChunkCoord[index][3] == 0) {};
-    return loadedChunkCoord[index][4];*/
-    std::array<int, 3> coords {coordX, coordY, coordZ};
+long ChunkList::coordsToKey(const ChunkCoords coords) {
+    long result = (fastFloat::mod(coords.x, 2 * RENDER_DISTANCE) * 4 * RENDER_DISTANCE * RENDER_DISTANCE) + (fastFloat::mod(coords.y, 2 * RENDER_DISTANCE) * 2 * RENDER_DISTANCE) + fastFloat::mod(coords.z, 2 * RENDER_DISTANCE);
+    return result;
+}
+
+int ChunkList::getIndex(const ChunkCoords chunkCoord) {
     int index;
     try {
-        index = coordToIndexMap.at(coordsToString(coords));
+        index = coordToIndexMap.at(coordsToKey(chunkCoord));
+    } catch (const std::out_of_range& oor) {
+        //std::cerr << "Out of Range error: " << oor.what() << "\n";
+        return -1;
+    }
+    return index;
+}
+
+int ChunkList::getIndex(const int chunkCoordX, const int chunkCoordY, const int chunkCoordZ) {
+    ChunkCoords chunkCoord;
+    chunkCoord.x = chunkCoordX;
+    chunkCoord.y = chunkCoordY;
+    chunkCoord.z = chunkCoordZ;
+    int index;
+    try {
+        index = coordToIndexMap.at(coordsToKey(chunkCoord));
     } catch (const std::out_of_range& oor) {
         //std::cerr << "Out of Range error: " << oor.what() << "\n";
         return -1;
@@ -38,36 +46,37 @@ int ChunkList::getIndex(int coordX, int coordY, int coordZ) {
 }
 
 int ChunkList::globalBlockAt(int coordX, int coordY, int coordZ, int threadID) {
-    int currentChunkX = chunkX[threadID];
-    int currentChunkY = chunkY[threadID];
-    int currentChunkZ = chunkZ[threadID];
+    ChunkCoords currentChunk;
+    currentChunk.x = chunkX[threadID];
+    currentChunk.y = chunkY[threadID];
+    currentChunk.z = chunkZ[threadID];
     int x = coordX;
     int y = coordY;
     int z = coordZ;
     if (coordX < 0) {
-        currentChunkX = chunkX[threadID] - 1;
+        currentChunk.x = chunkX[threadID] - 1;
         x = CHUNK_SIZE - 1;
     } else if (coordX >= CHUNK_SIZE) {
-        currentChunkX = chunkX[threadID] + 1;
+        currentChunk.x = chunkX[threadID] + 1;
         x = 0;
     }
     if (coordY < 0) {
-        currentChunkY = chunkY[threadID] - 1;
+        currentChunk.y = chunkY[threadID] - 1;
         y = CHUNK_SIZE - 1;
     } else if (coordY >= CHUNK_SIZE) {
-        currentChunkY = chunkY[threadID] + 1;
+        currentChunk.y = chunkY[threadID] + 1;
         y = 0;
     }
     if (coordZ < 0) {
-        currentChunkZ = chunkZ[threadID] - 1;
+        currentChunk.z = chunkZ[threadID] - 1;
         z = CHUNK_SIZE - 1;
     } else if (coordZ >= CHUNK_SIZE) {
-        currentChunkZ = chunkZ[threadID] + 1;
+        currentChunk.z = chunkZ[threadID] + 1;
         z = 0;
     }
 
     bool match = 0;
-    int currentIndex = getIndex(currentChunkX, currentChunkY, currentChunkZ);
+    int currentIndex = getIndex(currentChunk);
 
     if (currentIndex >= 0 && currentIndex < chunkWorldContainer.size() && chunkWorldContainer.at(currentIndex).chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
         try {
@@ -89,12 +98,11 @@ int ChunkList::cachedBlockAt(int coordX, int coordY, int coordZ, int threadID) {
 
 int ChunkList::blockAt(int coordX, int coordY, int coordZ, int threadID) {
     int block = cachedBlockAt(coordX + 1, coordY + 1, coordZ + 1, threadID);
-    if (block != -1) {
-        return block;
-    } else {
-        cachedBlocks[threadID][((coordX + 1) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + ((coordY + 1) * (CHUNK_SIZE + 2)) + (coordZ + 1)] = globalBlockAt(coordX, coordY, coordZ, threadID);
-        return cachedBlockAt(coordX + 1, coordY + 1, coordZ + 1, threadID);
+    if (block == -1) {
+        block = globalBlockAt(coordX, coordY, coordZ, threadID);
+        cachedBlocks[threadID][((coordX + 1) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + ((coordY + 1) * (CHUNK_SIZE + 2)) + (coordZ + 1)] = block;
     }
+    return block;
 }
 
 bool ChunkList::atBit(const int value, const unsigned int position) {

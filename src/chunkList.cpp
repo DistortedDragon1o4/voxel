@@ -27,15 +27,19 @@ void ChunkList::calculateLoadedChunks() {
     	cosineModifiedHalfFOV = cos(atan(screenDiag / (screenHeight / tan(FOV / 2))));
         for (int i = 0; i < (RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE); i++) {
             // float distance = sqrt(pow((chunkWorldContainer[i].chunkID[0] * CHUNK_SIZE) - camPosX + (CHUNK_SIZE / 2), 2) + pow((chunkWorldContainer[i].chunkID[1] * CHUNK_SIZE) - camPosY + (CHUNK_SIZE / 2), 2) + pow((chunkWorldContainer[i].chunkID[2] * CHUNK_SIZE) - camPosZ + (CHUNK_SIZE / 2), 2));
-            float distance = abs((chunkWorldContainer[i].chunkID[0] * CHUNK_SIZE) - camPosX + (CHUNK_SIZE / 2)) + abs(((chunkWorldContainer[i].chunkID[1] * CHUNK_SIZE) - camPosY + (CHUNK_SIZE / 2))) + abs((chunkWorldContainer[i].chunkID[2] * CHUNK_SIZE) - camPosZ + (CHUNK_SIZE / 2));
+            float distance = abs((chunkWorldContainer[i].chunkID.x * CHUNK_SIZE) - camPosX + (CHUNK_SIZE / 2)) + abs(((chunkWorldContainer[i].chunkID.y * CHUNK_SIZE) - camPosY + (CHUNK_SIZE / 2))) + abs((chunkWorldContainer[i].chunkID.z * CHUNK_SIZE) - camPosZ + (CHUNK_SIZE / 2));
             chunkWorldContainer[i].distance = distance;
-            chunkWorldContainer.at(i).frustumVisible = isFrustumCulled(chunkWorldContainer.at(i));
+            chunkWorldContainer.at(i).frustumVisible = isFrustumCulled(chunkWorldContainer.at(i).chunkID);
         }
     }
 }
 
 void ChunkList::assignChunkID() {
     while (run == 1) {
+    	ChunkCoords cameraChunk;
+        cameraChunk.x = int(floor(camPosX / CHUNK_SIZE)) - (RENDER_DISTANCE / 2);
+        cameraChunk.y = int(floor(camPosY / CHUNK_SIZE)) - (RENDER_DISTANCE / 2);
+        cameraChunk.z = int(floor(camPosZ / CHUNK_SIZE)) - (RENDER_DISTANCE / 2);
         if (firstRun == 0) {
             int offsetX = fastFloat::fastFloor(camPosX / CHUNK_SIZE) - (RENDER_DISTANCE / 2);
             int offsetY = fastFloat::fastFloor(camPosY / CHUNK_SIZE) - (RENDER_DISTANCE / 2);
@@ -51,10 +55,10 @@ void ChunkList::assignChunkID() {
                 }
             }
             for (int i = 0; i < (RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE); i++) {
-                chunkWorldContainer[i].chunkID[0] = loadedChunkCoord[i][0];
-                chunkWorldContainer[i].chunkID[1] = loadedChunkCoord[i][1];
-                chunkWorldContainer[i].chunkID[2] = loadedChunkCoord[i][2];
-                coordToIndexMap[coordsToString(chunkWorldContainer.at(i).chunkID)] = i;
+                chunkWorldContainer[i].chunkID.x = loadedChunkCoord[i][0];
+                chunkWorldContainer[i].chunkID.y = loadedChunkCoord[i][1];
+                chunkWorldContainer[i].chunkID.z = loadedChunkCoord[i][2];
+                coordToIndexMap[coordsToKey(chunkWorldContainer.at(i).chunkID)] = i;
                 loadedChunkCoord[i][4] = i;
                 chunkWorldContainer[i].emptyChunk = 0;
                 chunkWorldContainer[i].unGeneratedChunk = 1;
@@ -64,42 +68,41 @@ void ChunkList::assignChunkID() {
             firstRun = 1;
         } else {
             for (int i = 0; i < (RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE); i++) {
-                std::array<int, 3> cameraChunk {
-                    int(floor(camPosX / CHUNK_SIZE)) - (RENDER_DISTANCE / 2),
-                    int(floor(camPosY / CHUNK_SIZE)) - (RENDER_DISTANCE / 2),
-                    int(floor(camPosZ / CHUNK_SIZE)) - (RENDER_DISTANCE / 2),
-                };
                 std::array<int, 3> axisDistances {
-                    chunkWorldContainer[i].chunkID.at(0) - cameraChunk.at(0),
-                    chunkWorldContainer[i].chunkID.at(1) - cameraChunk.at(1),
-                    chunkWorldContainer[i].chunkID.at(2) - cameraChunk.at(2),
+                    chunkWorldContainer[i].chunkID.x - cameraChunk.x,
+                    chunkWorldContainer[i].chunkID.y - cameraChunk.y,
+                    chunkWorldContainer[i].chunkID.z - cameraChunk.z,
                 };
-                std::array<int, 3> newChunkID;
+                ChunkCoords newChunkID;
                 bool x = false;
                 if (!(axisDistances.at(0) < RENDER_DISTANCE && axisDistances.at(0) >= 0)) {
                     int m = fastFloat::mod(axisDistances.at(0), RENDER_DISTANCE);
-                    newChunkID.at(0) = cameraChunk.at(0) + m;
+                    newChunkID.x = cameraChunk.x + m;
                     x = true;
                 } else {
-                    newChunkID.at(0) = chunkWorldContainer[i].chunkID.at(0);
+                    newChunkID.x = chunkWorldContainer[i].chunkID.x;
                 }
                 if (!(axisDistances.at(1) < RENDER_DISTANCE && axisDistances.at(1) >= 0)) {
                     int m = fastFloat::mod(axisDistances.at(1), RENDER_DISTANCE);
-                    newChunkID.at(1) = cameraChunk.at(1) + m;
+                    newChunkID.y = cameraChunk.y + m;
                     x = true;
                 } else {
-                    newChunkID.at(1) = chunkWorldContainer[i].chunkID.at(1);
+                    newChunkID.y = chunkWorldContainer[i].chunkID.y;
                 }
                 if (!(axisDistances.at(2) < RENDER_DISTANCE && axisDistances.at(2) >= 0)) {
                     int m = fastFloat::mod(axisDistances.at(2), RENDER_DISTANCE);
-                    newChunkID.at(2) = cameraChunk.at(2) + m;
+                    newChunkID.z = cameraChunk.z + m;
                     x = true;
                 } else {
-                    newChunkID.at(2) = chunkWorldContainer[i].chunkID.at(2);
+                    newChunkID.z = chunkWorldContainer[i].chunkID.z;
                 }
                 if (x) {
-                    chunkWorldContainer[i].chunkID = newChunkID;                    
-                    coordToIndexMap[coordsToString(chunkWorldContainer.at(i).chunkID)] = i;
+                    coordToIndexMap.erase(coordsToKey(chunkWorldContainer.at(i).chunkID));
+
+                    chunkWorldContainer[i].chunkID = newChunkID;
+
+                    coordToIndexMap[coordsToKey(chunkWorldContainer.at(i).chunkID)] = i;
+
                     chunkWorldContainer[i].unGeneratedChunk = 1;
                     
                     chunkWorldContainer.at(i).unCompiledChunk = 1;
@@ -113,11 +116,11 @@ void ChunkList::assignChunkID() {
                 }
             }   
         }
-        std::array<int, 3> cameraChunk {
-            int(floor(camPosX / CHUNK_SIZE)),
-            int(floor(camPosY / CHUNK_SIZE)),
-            int(floor(camPosZ / CHUNK_SIZE))
-        };
+        cameraChunk.x = int(floor(camPosX / CHUNK_SIZE));
+        cameraChunk.y = int(floor(camPosY / CHUNK_SIZE));
+        cameraChunk.z = int(floor(camPosZ / CHUNK_SIZE));
+
+
         // const auto start = std::chrono::high_resolution_clock::now();
         BFSqueue.empty();
         
@@ -133,29 +136,12 @@ void ChunkList::assignChunkID() {
         // const std::chrono::duration<double> diff = end - start;
         // std::cout << "BFS search: " << diff << "\n";
 
-        crntPerm = chunkWorldContainer.at(getIndex(cameraChunk.at(0), cameraChunk.at(1), cameraChunk.at(2))).permeability;
+        crntPerm = chunkWorldContainer.at(getIndex(cameraChunk)).permeability;
 
 
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
 }
-
-std::string ChunkList::coordsToString(std::array<int, 3>& coords) {
-    std::array<char, 4> X = {coords.at(0) & 0xff, coords.at(0) & 0xff00, coords.at(0) & 0xff0000, coords.at(0) & 0xff000000};
-    std::array<char, 4> Y = {coords.at(1) & 0xff, coords.at(1) & 0xff00, coords.at(1) & 0xff0000, coords.at(1) & 0xff000000};
-    std::array<char, 4> Z = {coords.at(2) & 0xff, coords.at(2) & 0xff00, coords.at(2) & 0xff0000, coords.at(2) & 0xff000000};
-
-    std::string result = "";
-    for (const auto& i: X)
-        result += i;
-    for (const auto& i: Y)
-        result += i;
-    for (const auto& i: Z)
-        result += i;
-
-    return result;
-}
-
 
 bool ChunkList::isEdgeChunk(int coordX, int coordY, int coordZ) {
     if (coordX - fastFloat::fastFloor(camPosX / CHUNK_SIZE) == RENDER_DISTANCE / 2 - 1 || fastFloat::fastFloor(camPosX / CHUNK_SIZE) - coordX == RENDER_DISTANCE / 2 || coordY - fastFloat::fastFloor(camPosY / CHUNK_SIZE) == RENDER_DISTANCE / 2 - 1 || fastFloat::fastFloor(camPosY / CHUNK_SIZE) - coordY == RENDER_DISTANCE / 2 || coordZ - fastFloat::fastFloor(camPosZ / CHUNK_SIZE) == RENDER_DISTANCE / 2 - 1 || fastFloat::fastFloor(camPosZ / CHUNK_SIZE) - coordZ == RENDER_DISTANCE / 2) {
@@ -192,9 +178,9 @@ void ChunkList::organiseChunks(int threadID) {
             }
             
             if (iLetYouRun) {
-                chunkX[threadID] = chunkWorldContainer[index[threadID]].chunkID[0];
-                chunkY[threadID] = chunkWorldContainer[index[threadID]].chunkID[1];
-                chunkZ[threadID] = chunkWorldContainer[index[threadID]].chunkID[2];
+                chunkX[threadID] = chunkWorldContainer[index[threadID]].chunkID.x;
+                chunkY[threadID] = chunkWorldContainer[index[threadID]].chunkID.y;
+                chunkZ[threadID] = chunkWorldContainer[index[threadID]].chunkID.z;
                 std::unique_lock<std::mutex> lock(chunkWorldContainerMutex);
                 if ((chunkWorldContainer[index[threadID]].unCompiledChunk == 1 || chunkWorldContainer[index[threadID]].forUpdate == 1) && chunkWorldContainer[index[threadID]].unGeneratedChunk == 0) {
                     chunkWorldContainer[index[threadID]].vaolck = 1;
@@ -244,11 +230,10 @@ void ChunkList::generateChunks() {
             if (chunkWorldContainer[index].unGeneratedChunk == 1) {
 
                 generator.initChunk(chunkWorldContainer[index].chunkData);
-                generator.generateChunk(chunkWorldContainer[index].chunkData, chunkWorldContainer[index].chunkID[0], chunkWorldContainer[index].chunkID[1], chunkWorldContainer[index].chunkID[2]);
+                generator.generateChunk(chunkWorldContainer[index].chunkData, chunkWorldContainer[index].chunkID.x, chunkWorldContainer[index].chunkID.y, chunkWorldContainer[index].chunkID.z);
                 
                 // const auto start = std::chrono::high_resolution_clock::now();
 
-                chunkWorldContainer.at(index).chunkDataBFSvisited = generator.bfs;
                 checkPermeability(chunkWorldContainer.at(index));
 
                 // const auto end = std::chrono::high_resolution_clock::now();
@@ -308,28 +293,28 @@ bool ChunkList::alreadyIn(std::vector <int> queue, int element) {
 void ChunkList::updateChunk(int ChunkX, int ChunkY, int ChunkZ, bool surroundings) {
     if (surroundings) {
         for (int i = 0; i < chunkWorldContainer.size(); i++) {
-            if (chunkWorldContainer[i].chunkID[0] == ChunkX && chunkWorldContainer[i].chunkID[1] == ChunkY && chunkWorldContainer[i].chunkID[2] == ChunkZ + 1 && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
+            if (chunkWorldContainer[i].chunkID.x == ChunkX && chunkWorldContainer[i].chunkID.y == ChunkY && chunkWorldContainer[i].chunkID.z == ChunkZ + 1 && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
                 chunkWorldContainer[i].forUpdate = 1;
             }
-            if (chunkWorldContainer[i].chunkID[0] == ChunkX && chunkWorldContainer[i].chunkID[1] == ChunkY && chunkWorldContainer[i].chunkID[2] == ChunkZ - 1 && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
+            if (chunkWorldContainer[i].chunkID.x == ChunkX && chunkWorldContainer[i].chunkID.y == ChunkY && chunkWorldContainer[i].chunkID.z == ChunkZ - 1 && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
                 chunkWorldContainer[i].forUpdate = 1;
             }
-            if (chunkWorldContainer[i].chunkID[0] == ChunkX && chunkWorldContainer[i].chunkID[1] == ChunkY + 1 && chunkWorldContainer[i].chunkID[2] == ChunkZ && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
+            if (chunkWorldContainer[i].chunkID.x == ChunkX && chunkWorldContainer[i].chunkID.y == ChunkY + 1 && chunkWorldContainer[i].chunkID.z == ChunkZ && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
                 chunkWorldContainer[i].forUpdate = 1;
             }
-            if (chunkWorldContainer[i].chunkID[0] == ChunkX && chunkWorldContainer[i].chunkID[1] == ChunkY - 1 && chunkWorldContainer[i].chunkID[2] == ChunkZ && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
+            if (chunkWorldContainer[i].chunkID.x == ChunkX && chunkWorldContainer[i].chunkID.y == ChunkY - 1 && chunkWorldContainer[i].chunkID.z == ChunkZ && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
                 chunkWorldContainer[i].forUpdate = 1;
             }
-            if (chunkWorldContainer[i].chunkID[0] == ChunkX + 1 && chunkWorldContainer[i].chunkID[1] == ChunkY && chunkWorldContainer[i].chunkID[2] == ChunkZ && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
+            if (chunkWorldContainer[i].chunkID.x == ChunkX + 1 && chunkWorldContainer[i].chunkID.y == ChunkY && chunkWorldContainer[i].chunkID.z == ChunkZ && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
                 chunkWorldContainer[i].forUpdate = 1;
             }
-            if (chunkWorldContainer[i].chunkID[0] == ChunkX - 1 && chunkWorldContainer[i].chunkID[1] == ChunkY && chunkWorldContainer[i].chunkID[2] == ChunkZ && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
+            if (chunkWorldContainer[i].chunkID.x == ChunkX - 1 && chunkWorldContainer[i].chunkID.y == ChunkY && chunkWorldContainer[i].chunkID.z == ChunkZ && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
                 chunkWorldContainer[i].forUpdate = 1;
             }
         }
     }
     for (int i = 0; i < chunkWorldContainer.size(); i++) {
-        if (chunkWorldContainer[i].chunkID[0] == ChunkX && chunkWorldContainer[i].chunkID[1] == ChunkY && chunkWorldContainer[i].chunkID[2] == ChunkZ && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
+        if (chunkWorldContainer[i].chunkID.x == ChunkX && chunkWorldContainer[i].chunkID.y == ChunkY && chunkWorldContainer[i].chunkID.z == ChunkZ && chunkWorldContainer[i].chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
             chunkWorldContainer[i].forUpdate = 1;
             break;
         }

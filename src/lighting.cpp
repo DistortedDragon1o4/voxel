@@ -1,12 +1,14 @@
 #include "../include/chunkList.h"
+#include "chunkDataContainer.h"
 
-void ChunkList::updateLight(std::array<int, 3>& coords, int threadID) {
-    int index = coordToIndexMap[coordsToString(coords)];
+void ChunkList::updateLight(const ChunkCoords coords, int threadID) {
+    int index = getIndex(coords);
+    ChunkDataContainer &chunk = chunkWorldContainer[index];
     for (int i = 0; i < CHUNK_SIZE + 1; i++) {
         for (int j = 0; j < CHUNK_SIZE + 1; j++) {
             for (int k = 0; k < CHUNK_SIZE + 1; k++) {
                 //if (i % 2 == 1) {
-                    chunkWorldContainer.at(index).lightData.at((i * (CHUNK_SIZE + 1) * (CHUNK_SIZE + 1)) + (j * (CHUNK_SIZE + 1)) + k) = 1.0f;
+                    chunk.lightData[(i * (CHUNK_SIZE + 1) * (CHUNK_SIZE + 1)) + (j * (CHUNK_SIZE + 1)) + k] = 1.0f;
                 //}
             }
         }

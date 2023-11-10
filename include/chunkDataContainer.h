@@ -4,6 +4,7 @@
 #include <string>
 #include <array>
 #include <vector>
+#include <bitset>
 #include "VAO.h"
 
 #define NUM_BLOCKS 6
@@ -33,7 +34,7 @@ struct ChunkDataContainer {
 	std::vector<unsigned int> mesh;
     std::vector<unsigned int> indices;
 	int EBOsize = 0;
-	std::array <int, 3> chunkID;
+	ChunkCoords chunkID;
 	float distance;
 	bool inQueue = 0;
     bool inBFSqueue = 0;
@@ -50,7 +51,8 @@ struct ChunkDataContainer {
 
     bool occlusionUnCulled = false;
 
-    std::vector<bool> chunkDataBFSvisited = std::vector<bool>(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
+    //std::vector<bool> chunkDataBFSvisited = std::vector<bool>(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
+    //std::bitset<CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE> chunkDataBFSvisited;
     bool isPermeableCheckDone = 0;
     short permeability = 0;
 };
@@ -127,7 +129,7 @@ struct BlockTemplate {
         0
     };
 
-    const std::vector<uint> dataEBO {
+    const std::array<uint, 6> dataEBO {
         0, 1, 2,
     	2, 3, 0,
     };

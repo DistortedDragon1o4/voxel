@@ -134,14 +134,14 @@ void ChunkList::rayCastTillBlock(const glm::dvec3 ray, const glm::dvec3 position
 
         //std::cout << iter << "-" << crntRayPos.x << " " << crntRayPos.y << " " << crntRayPos.z << "\n";
 
-        std::array<int, 3> chunkCoords {
-            int(floor(crntRayPosInt.x / CHUNK_SIZE)),
-            int(floor(crntRayPosInt.y / CHUNK_SIZE)),
-            int(floor(crntRayPosInt.z / CHUNK_SIZE))
-        };
+        ChunkCoords chunkCoords;
+        chunkCoords.x = int(floor(crntRayPosInt.x / CHUNK_SIZE));
+        chunkCoords.y = int(floor(crntRayPosInt.y / CHUNK_SIZE));
+        chunkCoords.z = int(floor(crntRayPosInt.z / CHUNK_SIZE));
+
         int index;
         try {
-            index = coordToIndexMap.at(coordsToString(chunkCoords));
+            index = coordToIndexMap.at(coordsToKey(chunkCoords));
         } catch (const std::out_of_range& oor) {
             blockPos = glm::ivec3(2147483647, 2147483647, 2147483647);
             prevBlockPos = glm::ivec3(2147483647, 2147483647, 2147483647);
@@ -151,9 +151,9 @@ void ChunkList::rayCastTillBlock(const glm::dvec3 ray, const glm::dvec3 position
         }
 
         std::array<int, 3> coords {
-            int(floor(crntRayPosInt.x)) - (CHUNK_SIZE * chunkCoords.at(0)),
-            int(floor(crntRayPosInt.y)) - (CHUNK_SIZE * chunkCoords.at(1)),
-            int(floor(crntRayPosInt.z)) - (CHUNK_SIZE * chunkCoords.at(2))
+            int(floor(crntRayPosInt.x)) - (CHUNK_SIZE * chunkCoords.x),
+            int(floor(crntRayPosInt.y)) - (CHUNK_SIZE * chunkCoords.y),
+            int(floor(crntRayPosInt.z)) - (CHUNK_SIZE * chunkCoords.z)
         };
 
         if(chunkWorldContainer.at(index).chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE && chunkWorldContainer.at(index).chunkData.at((coords.at(0) * CHUNK_SIZE * CHUNK_SIZE) + (coords.at(1) * CHUNK_SIZE) + coords.at(2)) > 0) {

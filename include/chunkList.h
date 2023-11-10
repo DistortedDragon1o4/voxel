@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <vector>
 #include <bitset>
+#include <ankerl/unordered_dense.h>
 
 #include "buffers.h"
 #include "chunkDataContainer.h"
@@ -26,16 +27,11 @@ struct Region {
 // std::vector<int> blockIndices;
 };
 
-// struct Frustum {
-//   void init(double width, double height, double FOV, glm::dvec3 up, glm::dvec3 camPosLocal, glm::dvec3 camDirLocal, double nearPlaneDistanceLocal, double farPlaneDistanceLocal);
-//   bool isInFrustum(glm::dvec3 coords);
-//   double FOV;
-//   double nearPlaneDistance;
-//   double farPlaneDistance;
-//   std::array<glm::dvec3, 4> frustumFaceNormals;   // In the order posX, negX, posY, negY
-//   glm::dvec3 camPos;
-//   glm::dvec3 camDir;
-// };
+union DoubleToLongLong {
+    double d;
+    long long ll;
+    DoubleToLongLong(double _d) : d(_d) {}
+};
 
 class ChunkList {
 private:
@@ -67,15 +63,18 @@ private:
 	int globalBlockAt(int coordX, int coordY, int coordZ, int threadID);
 	int cachedBlockAt(int coordX, int coordY, int coordZ, int threadID);
 	void doIndices(int threadID);
-	int getIndex(int coordX, int coordY, int coordZ);
+
+	int getIndex(const ChunkCoords chunkCoord);
+	int getIndex(const int chunkCoordX, const int chunkCoordY, const int chunkCoordZ);
+
 	bool atBit(const int value, const unsigned int position);
 	int ambientOccIndex(int coordinates);
 
 	bool checkVisibility(glm::vec3 pos, glm::vec3 camDir, double FOV);
 
-	std::unordered_map<std::string, unsigned int> coordToIndexMap;
+	ankerl::unordered_dense::map<long, unsigned int> coordToIndexMap;
 
-	std::string coordsToString(std::array<int, 3> &coords);
+	long coordsToKey(const ChunkCoords coords);
 
 	// std::vector<float> angleFromCamera = std::vector<float>((RENDER_DISTANCE +
 	// 1) * (RENDER_DISTANCE + 1) * (RENDER_DISTANCE + 1));
@@ -87,7 +86,7 @@ private:
 	int chunkY[NUM_THREADS];
 	int chunkZ[NUM_THREADS];
 
-	short cachedBlocks[NUM_THREADS][(CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)];
+	std::array<std::array<short, (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)>, NUM_THREADS> cachedBlocks = {-1};
 
 	double increment = 0.05;
 
@@ -95,10 +94,10 @@ private:
 
 	std::queue<int> chunkMeshingQueue;
 	// std::queue<int> chunkGeneratingQueue;
-	std::queue<std::array<int, 3>> BFSqueue;
+	std::queue<ChunkCoords> BFSqueue;
 	// std::queue<std::array<int, 3>> BFSqueueGenerator;
-	void searchNeighbouringChunks(std::array<int, 3> chunkID);
-	void doBFS(std::array<int, 3> chunk);
+	void searchNeighbouringChunks(const ChunkCoords chunkID);
+	void doBFS(const ChunkCoords chunk);
 	// void searchNeighbouringChunksGenerator(std::array<int, 3> chunkID);
 	// void doBFSGenerator(std::array<int, 3> chunk);
 
@@ -120,20 +119,19 @@ private:
 	std::queue<int> BFSqueuePermeability;
 	// bool checkIfInRegion(std::vector<Region> &regions, int blockIndex);
 	// bool checkIfInRegion(Region &region, int blockIndex);
-	void doBlockBFSforPermeability(int startIndex, Region &region, ChunkDataContainer &chunk);
-	void searchNeighbouringBlocks(Region &regions, int blockIndex, ChunkDataContainer &chunk);
+	void doBlockBFSforPermeability(int startIndex, Region &region, ChunkDataContainer &chunk, std::array<bool, CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE> &chunkDataBFSvisited);
+	void searchNeighbouringBlocks(int blockIndex, ChunkDataContainer &chunk, std::array<bool, CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE> &chunkDataBFSvisited);
 	int getBlockIndex(int x, int y, int z);
 	short facing(int index);
 	short generatePermeability(Region &region);
 
 	short permeabilityIndex(int a, int b);
 
-	bool isFrustumCulled(ChunkDataContainer &chunk);
 	double cosineModifiedHalfFOV;
 	double frustumOffset;
 
 public:
-	// Frustum viewFrustum;
+	bool isFrustumCulled(const ChunkCoords &chunkCoords);
 
 	double FOV;
 	double screenDiag;
@@ -173,7 +171,7 @@ public:
 	void putInVAOs();
 	void generateChunks();
 
-	void updateLight(std::array<int, 3> &coords, int threadID);
+	void updateLight(const ChunkCoords coords, int threadID);
 	void uploadLight(int index);
 	SSBO lightDataOnGPU;
 

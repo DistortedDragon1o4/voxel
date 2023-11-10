@@ -389,14 +389,15 @@ int main(int argc, char** argv) {
     int newChunkCount = 0;
 
     for (int i = 0; i < chunkLister.chunkWorldContainer.size(); i++) {
+      ChunkDataContainer &chunk = chunkLister.chunkWorldContainer[i];
       // please remember to FOV here when changing FOV
-      if (chunkLister.chunkWorldContainer[i].renderlck == 0 && chunkLister.chunkWorldContainer[i].unCompiledChunk == 0 && chunkLister.chunkWorldContainer[i].EBOsize != 0 && chunkLister.chunkWorldContainer.at(i).occlusionUnCulled == true && chunkLister.chunkWorldContainer.at(i).frustumVisible == true) {
+      if (chunk.renderlck == 0 && chunk.unCompiledChunk == 0 && chunk.EBOsize != 0 && chunk.occlusionUnCulled == true && chunk.frustumVisible == true) {
         newChunkCount++;
-        chunkLister.chunkWorldContainer[i].array.Bind();
-        glUniform3iv(locChunkID, 1, &chunkLister.chunkWorldContainer[i].chunkID[0]);
+        chunk.array.Bind();
+        glUniform3iv(locChunkID, 1, &chunk.chunkID.x);
         glUniform1i(locIndex, i);
-        glDrawElements(GL_TRIANGLES, chunkLister.chunkWorldContainer[i].EBOsize,GL_UNSIGNED_INT, 0);
-        chunkLister.chunkWorldContainer[i].array.Unbind();
+        glDrawElements(GL_TRIANGLES, chunk.EBOsize,GL_UNSIGNED_INT, 0);
+        chunk.array.Unbind();
       }
     }
 

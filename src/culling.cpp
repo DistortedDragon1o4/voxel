@@ -1,10 +1,11 @@
+#include "chunkDataContainer.h"
 #include "chunkList.h"
 #include "glm/fwd.hpp"
 
 // Frustum culling
 
-bool ChunkList::isFrustumCulled(ChunkDataContainer &chunk) {
-	glm::dvec3 chunkBaseCoords = glm::dvec3(chunk.chunkID.at(0) * CHUNK_SIZE, chunk.chunkID.at(1) * CHUNK_SIZE, chunk.chunkID.at(2) * CHUNK_SIZE);
+bool ChunkList::isFrustumCulled(const ChunkCoords &chunkCoords) {
+	glm::dvec3 chunkBaseCoords = glm::dvec3(chunkCoords.x * CHUNK_SIZE, chunkCoords.y * CHUNK_SIZE, chunkCoords.z * CHUNK_SIZE);
 	glm::dvec3 camPos = glm::dvec3(camPosX, camPosY, camPosZ) - (frustumOffset * camDir);
 	for (int i = 0; i < CHUNK_SIZE + 1; i += CHUNK_SIZE) {
 		for (int j = 0; j < CHUNK_SIZE + 1; j += CHUNK_SIZE) {
@@ -54,7 +55,7 @@ short ChunkList::facing(int index) {
     return facingInfo;
 }
 
-void ChunkList::searchNeighbouringBlocks(Region &region, int blockIndex, ChunkDataContainer &chunk) {
+void ChunkList::searchNeighbouringBlocks(int blockIndex, ChunkDataContainer &chunk, std::array<bool, CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE> &chunkDataBFSvisited) {
     BlockCoords block(blockIndex);
     std::array<int, 6> neighbouringBlockIndices;
 
@@ -71,44 +72,39 @@ void ChunkList::searchNeighbouringBlocks(Region &region, int blockIndex, ChunkDa
     neighbouringBlockIndices.at(5) = getBlockIndex(block.x, block.y - 1, block.z);
 
     for (int i = 0; i < 6; i++) {
-        if (neighbouringBlockIndices.at(i) != -1) {
-            if (blocks.at(chunk.chunkData.at(neighbouringBlockIndices.at(i))).isSolid == false) {
-                if (chunk.chunkDataBFSvisited.at(neighbouringBlockIndices.at(i)) == false) {
-                    BFSqueuePermeability.push(neighbouringBlockIndices.at(i));
-                    chunk.chunkDataBFSvisited.at(neighbouringBlockIndices.at(i)) = true;
-                    //region.neighbours |= facing(neighbouringBlockIndices.at(i));
-                }
+        int index = neighbouringBlockIndices[i];
+        if (index != -1) {
+            if (chunkDataBFSvisited[index] == false && blocks[chunk.chunkData[index]].isSolid == false) {
+                BFSqueuePermeability.push(index);
+                chunkDataBFSvisited[index] = true;
             }
         }
     }
 }
 
-void ChunkList::doBlockBFSforPermeability(int startIndex, Region &region, ChunkDataContainer &chunk) {
+void ChunkList::doBlockBFSforPermeability(int startIndex, Region &region, ChunkDataContainer &chunk, std::array<bool, CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE> &chunkDataBFSvisited) {
     int crntBlockIndex = startIndex;
-    chunk.chunkDataBFSvisited.at(crntBlockIndex) = true;
+    chunkDataBFSvisited[crntBlockIndex] = true;
     region.neighbours |= facing(crntBlockIndex);
-    searchNeighbouringBlocks(region, crntBlockIndex, chunk);
+    searchNeighbouringBlocks(crntBlockIndex, chunk, chunkDataBFSvisited);
     while(BFSqueuePermeability.size() > 0) {
         crntBlockIndex = BFSqueuePermeability.front();
         BFSqueuePermeability.pop();
         region.neighbours |= facing(crntBlockIndex);
-        searchNeighbouringBlocks(region, crntBlockIndex, chunk);
+        searchNeighbouringBlocks(crntBlockIndex, chunk, chunkDataBFSvisited);
     }
 }
 
 void ChunkList::checkPermeability(ChunkDataContainer &chunk) {
-    //std::vector<Region> regions;
+    std::array<bool, CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE> chunkDataBFSvisited = {0};
     for (int i = 0; i < CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE; i++) {
-        if (blocks.at(chunk.chunkData.at(i)).isSolid == false && chunk.chunkDataBFSvisited.at(i) == false) {
+        if (chunkDataBFSvisited[i] == false && blocks[chunk.chunkData[i]].isSolid == false) {
             Region crntRegion;
-            doBlockBFSforPermeability(i, crntRegion, chunk);
-            // std::bitset<16> x(crntRegion.neighbours);
-            // std::cout << x << " happy\n";
+            doBlockBFSforPermeability(i, crntRegion, chunk, chunkDataBFSvisited);
             chunk.permeability |= generatePermeability(crntRegion);
         }
     }
     chunk.isPermeableCheckDone = true;
-    // std::cout << "done\n";
 }
 
 short ChunkList::generatePermeability(Region &region) {
@@ -129,9 +125,9 @@ short ChunkList::permeabilityIndex(int a, int b) {
 
 // BFS for making the meshing queue and also occlusion culling
 
-void ChunkList::doBFS(std::array<int, 3> chunk) {
+void ChunkList::doBFS(const ChunkCoords chunk) {
 
-    std::array<int, 3> crntChunk;
+    ChunkCoords crntChunk;
     bool first = true;
     // int count = 0;
     // int x, y = 0;
@@ -143,43 +139,44 @@ void ChunkList::doBFS(std::array<int, 3> chunk) {
             crntChunk = BFSqueue.front();
             BFSqueue.pop();
         }
-        int crntChunkIndex = getIndex(crntChunk.at(0), crntChunk.at(1), crntChunk.at(2));
+        int crntChunkIndex = getIndex(crntChunk);
         if (crntChunkIndex == -1) {
             std::cout << "I died\n";
             return;
         }
-        if (chunkWorldContainer.at(crntChunkIndex).unCompiledChunk == true && isFrustumCulled(chunkWorldContainer.at(crntChunkIndex)) && chunkWorldContainer.at(crntChunkIndex).unGeneratedChunk == false && chunkWorldContainer.at(crntChunkIndex).isPermeableCheckDone == true && chunkWorldContainer.at(crntChunkIndex).inQueue == false && isEdgeChunk(crntChunk.at(0), crntChunk.at(1), crntChunk.at(2)) == false) {
+        ChunkDataContainer &chunkObj = chunkWorldContainer.at(crntChunkIndex);
+        if (chunkObj.unCompiledChunk == true && chunkObj.frustumVisible == true && chunkObj.unGeneratedChunk == false && chunkObj.isPermeableCheckDone == true && chunkObj.inQueue == false && isEdgeChunk(crntChunk.x, crntChunk.y, crntChunk.z) == false) {
             chunkMeshingQueue.push(crntChunkIndex);
-            chunkWorldContainer.at(crntChunkIndex).inQueue = true;
+            chunkObj.inQueue = true;
             // x++;
         }
         localOcclusionUnCulled.at(crntChunkIndex) = true;
         // y++;
         // std::cout << chunkMeshingQueue.size() << " " << x << " " << BFSqueue.size() << " " << crntChunk.at(0) << " " << crntChunk.at(1) << " " << crntChunk.at(2) << " Sad\n";
-        if (chunkWorldContainer.at(crntChunkIndex).unGeneratedChunk == false && chunkWorldContainer.at(crntChunkIndex).isPermeableCheckDone == true)
+        if (chunkObj.unGeneratedChunk == false && chunkObj.isPermeableCheckDone == true)
             searchNeighbouringChunks(crntChunk);
     } while (BFSqueue.size() > 0);
     // std::cout << chunkMeshingQueue.size() << " " << x << " " << y << " " << crntChunk.at(0) << " " << crntChunk.at(1) << " " << crntChunk.at(2) << " Sad\n";
 }
 
-void ChunkList::searchNeighbouringChunks(std::array<int, 3> chunkID) {
-    int crntChunkIndex = getIndex(chunkID.at(0), chunkID.at(1), chunkID.at(2));
+void ChunkList::searchNeighbouringChunks(const ChunkCoords chunkID) {
+    int crntChunkIndex = getIndex(chunkID);
     ChunkDataContainer &crntChunk = chunkWorldContainer.at(crntChunkIndex);
 
     std::array<unsigned int, 6> neighbouringChunkIndices;
 
     // const auto start = std::chrono::high_resolution_clock::now();
-    neighbouringChunkIndices.at(0) = getIndex(chunkID.at(0) + 1, chunkID.at(1), chunkID.at(2));
+    neighbouringChunkIndices.at(0) = getIndex(chunkID.x + 1, chunkID.y, chunkID.z);
 
-    neighbouringChunkIndices.at(1) = getIndex(chunkID.at(0) - 1, chunkID.at(1), chunkID.at(2));
+    neighbouringChunkIndices.at(1) = getIndex(chunkID.x - 1, chunkID.y, chunkID.z);
 
-    neighbouringChunkIndices.at(4) = getIndex(chunkID.at(0), chunkID.at(1), chunkID.at(2) + 1);
+    neighbouringChunkIndices.at(4) = getIndex(chunkID.x, chunkID.y, chunkID.z + 1);
 
-    neighbouringChunkIndices.at(5) = getIndex(chunkID.at(0), chunkID.at(1), chunkID.at(2) - 1);
+    neighbouringChunkIndices.at(5) = getIndex(chunkID.x, chunkID.y, chunkID.z - 1);
 
-    neighbouringChunkIndices.at(2) = getIndex(chunkID.at(0), chunkID.at(1) + 1, chunkID.at(2));
+    neighbouringChunkIndices.at(2) = getIndex(chunkID.x, chunkID.y + 1, chunkID.z);
 
-    neighbouringChunkIndices.at(3) = getIndex(chunkID.at(0), chunkID.at(1) - 1, chunkID.at(2));
+    neighbouringChunkIndices.at(3) = getIndex(chunkID.x, chunkID.y - 1, chunkID.z);
     // const auto end = std::chrono::high_resolution_clock::now();
  
     // const std::chrono::duration<double> diff = end - start;
