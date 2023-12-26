@@ -28,11 +28,11 @@ It literally has no purpose to exist but it does. If you want to try it out do s
 ![Screenshot](https://raw.githubusercontent.com/DistortedDragon1o4/voxel/main/screenshots/3.png)
 
 ## Special Thanks:
-- Ofcourse the Khoros group for OpenGL and all
+- Ofcourse the Khoros group for [OpenGL](https://opengl.org) and all
 - [FastNoise2](https://github.com/Auburn/FastNoise2) by Auburn for generating chunks
 - [stb](https://github.com/nothings/stb) by nothings for giving a way to import images
 - [Dear ImGui](https://github.com/ocornut/imgui) by ocornut for helping me do the thing i was the most nervous about, GUIs
-- Minecraft for the inspiration
+- [Minecraft](https://minecraft.net) for the inspiration
 - [Sodium](https://github.com/CaffeineMC/sodium-fabric) by CaffeineMC for inspiring me to optimise my voxel engine like crazy
 
 ## Running:
