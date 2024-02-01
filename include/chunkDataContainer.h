@@ -9,8 +9,8 @@
 #include <coordinateContainers.h>
 
 #define NUM_BLOCKS 6
-#define RENDER_DISTANCE 24
-#define CHUNK_SIZE 16
+#define RENDER_DISTANCE 12
+#define CHUNK_SIZE 32
 
 // Please DO NOT change this
 #define REGION_SIZE 4
@@ -18,12 +18,17 @@
 
 #define ALLOC_1MB_OF_VERTICES 131072
 
+struct ChunkLightContainer {
+    std::array<unsigned int, (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)> data;// = std::vector<unsigned int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2));
+};
 
 struct ChunkDataContainer {
 	// stores the blockID of each block in the chunk
 	std::vector<short> chunkData;
-	std::vector<float> lightData = std::vector<float>((CHUNK_SIZE + 1) * (CHUNK_SIZE + 1) * (CHUNK_SIZE + 1));
-	std::vector<unsigned int> mesh;
+	
+    std::vector<unsigned int> mesh;
+
+    ChunkLightContainer lightData;
 
 	int meshSize = 0;
     bool redoRegionMesh = false;
@@ -45,14 +50,14 @@ struct ChunkDataContainer {
 	bool renderlck = 0;
 	bool forUpdate = 0;
 
-    bool frustumVisible = false;
+    // bool lightUploaded = false;
+    // bool lightReadyToUpload = false;
 
     bool occlusionUnCulled = false;
 
     bool isPermeableCheckDone = 0;
     short permeability = 0;
 };
-
 
 struct Region {
     ~Region() {
@@ -72,8 +77,9 @@ struct Region {
     int numFilledVertices = 0;
 
     std::array<int, REGION_SIZE * REGION_SIZE * REGION_SIZE> count = {};
-    std::array<void*, REGION_SIZE * REGION_SIZE * REGION_SIZE> indexOffset = {BUFFER_OFFSET(0)};
     std::array<int, REGION_SIZE * REGION_SIZE * REGION_SIZE> baseVertex = {};
+
+    unsigned int numFilledChunks = 0;
 
     // very misleading name, but ok
     // RegionProperties regionProperties;
@@ -91,46 +97,45 @@ struct Region {
 
     bool empty = true;
 
-    bool entirelyCulled = false;
 };
 
 
 struct BlockTemplate {
     // vertex format:
-    // | 4 bits for texture U | 4 bits for texture V | 8 bits for X | 8 bits for Y | 8 bits for Z |
-    // | 28 bits for texture coordinate | 3 bits for normal | 1 bit for ambient occlusion |
+    // | 10 bits for X | 10 bits for Y | 10 bits for Z |
+    // | 13 bits for texture coordinate | 4 bits for texture U | 4 bits for texture V | 3 bits for normal | 8 bit for ambient occlusion |
 
     const std::vector<unsigned int> blockBitMap {
-        //| U|| V||     X||     Y||     Z|
-        0b10001000000010000000100000001000,      0b10100000000,
-        0b00001000000000000000100000001000,      0b10100000000,
-        0b00000000000000000000000000001000,      0b10100000000,
-        0b10000000000010000000000000001000,      0b10100000000,
-        //| U|| V||     X||     Y||     Z|
-        0b10001000000000000000100000000000,      0b10000000000,
-        0b00001000000010000000100000000000,      0b10000000000,
-        0b00000000000010000000000000000000,      0b10000000000,
-        0b10000000000000000000000000000000,      0b10000000000,
-        //| U|| V||     X||     Y||     Z|
-        0b10001000000010000000100000000000,      0b01100000000,
-        0b00001000000010000000100000001000,      0b01100000000,
-        0b00000000000010000000000000001000,      0b01100000000,
-        0b10000000000010000000000000000000,      0b01100000000,
-        //| U|| V||     X||     Y||     Z|
-        0b10001000000000000000100000001000,      0b01000000000,
-        0b00001000000000000000100000000000,      0b01000000000,
-        0b00000000000000000000000000000000,      0b01000000000,
-        0b10000000000000000000000000001000,      0b01000000000,
-        //| U|| V||     X||     Y||     Z|
-        0b10001000000010000000100000000000,      0b00100000000,
-        0b00001000000000000000100000000000,      0b00100000000,
-        0b00000000000000000000100000001000,      0b00100000000,
-        0b10000000000010000000100000001000,      0b00100000000,
-        //| U|| V||     X||     Y||     Z|
-        0b10001000000010000000000000001000,      0b00000000000,
-        0b00001000000000000000000000001000,      0b00000000000,
-        0b00000000000000000000000000000000,      0b00000000000,
-        0b10000000000010000000000000000000,      0b00000000000
+        //|       X||       Y||       Z|         | U|| V||N|     AO|
+        0b000001000000000100000000010000,      0b1000100010100000000,
+        0b000000000000000100000000010000,      0b0000100010100000000,
+        0b000000000000000000000000010000,      0b0000000010100000000,
+        0b000001000000000000000000010000,      0b1000000010100000000,
+        //|       X||       Y||       Z|
+        0b000000000000000100000000000000,      0b1000100010000000000,
+        0b000001000000000100000000000000,      0b0000100010000000000,
+        0b000001000000000000000000000000,      0b0000000010000000000,
+        0b000000000000000000000000000000,      0b1000000010000000000,
+        //|       X||       Y||       Z|
+        0b000001000000000100000000000000,      0b1000100001100000000,
+        0b000001000000000100000000010000,      0b0000100001100000000,
+        0b000001000000000000000000010000,      0b0000000001100000000,
+        0b000001000000000000000000000000,      0b1000000001100000000,
+        //|       X||       Y||       Z|
+        0b000000000000000100000000010000,      0b1000100001000000000,
+        0b000000000000000100000000000000,      0b0000100001000000000,
+        0b000000000000000000000000000000,      0b0000000001000000000,
+        0b000000000000000000000000010000,      0b1000000001000000000,
+        //|       X||       Y||       Z|
+        0b000001000000000100000000000000,      0b1000100000100000000,
+        0b000000000000000100000000000000,      0b0000100000100000000,
+        0b000000000000000100000000010000,      0b0000000000100000000,
+        0b000001000000000100000000010000,      0b1000000000100000000,
+        //|       X||       Y||       Z|
+        0b000001000000000000000000010000,      0b1000100000000000000,
+        0b000000000000000000000000010000,      0b0000100000000000000,
+        0b000000000000000000000000000000,      0b0000000000000000000,
+        0b000001000000000000000000000000,      0b1000000000000000000
     };
 
     const std::vector<int> faceType {

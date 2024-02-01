@@ -11,7 +11,7 @@ void main() {
 	
 	uint accumulator = 0;
 	for (int i = 0; i < 64; i++) {
-		chunkViewableBufferData.data[(64 * regionIndex) + i] |= accumulator << 2;
 		accumulator += (chunkViewableBufferData.data[(64 * regionIndex) + i] >> 1) & 1;
+		chunkViewableBufferData.data[(64 * regionIndex) + i] |= accumulator << 2;
 	}
 }

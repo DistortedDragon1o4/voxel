@@ -2,7 +2,7 @@
 
 layout (local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
 
-int CHUNK_SIZE = 16;
+int CHUNK_SIZE = 32;
 
 struct DrawCommand {
     uint count;
@@ -45,7 +45,7 @@ uniform vec3 camDir;
 uniform float frustumOffset;
 
 uint isInsideViewFrustum(ivec3 chunkID) {
-	vec3 chunkBaseCoords = chunkID * 16.0;
+	vec3 chunkBaseCoords = chunkID * 32.0;
 	vec3 newCamPos = vec3(camPos.x, camPos.y, camPos.z) - (frustumOffset * camDir);
 
 	for (int i = 0; i < CHUNK_SIZE + 1; i += CHUNK_SIZE) {

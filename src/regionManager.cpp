@@ -61,7 +61,7 @@ void Region::compileMesh() {
 	    for (int i = 0; i < REGION_SIZE * REGION_SIZE * REGION_SIZE; i++) {
 	    	baseVertex[i] += crntBaseVertex;
 
-		    indexOffset[i] = BUFFER_OFFSET(6 * (baseVertex[i] / 8) * sizeof(int));
+		    // indexOffset[i] = BUFFER_OFFSET(6 * (baseVertex[i] / 8) * sizeof(int));
 
 	    	if (isChunkNull.test(i)) {
 	    		if (chunksInRegion[i]->redoRegionMesh) {

@@ -102,22 +102,6 @@ struct ChunkGeneratingQueueGenerator {
 	void doBFS(const ChunkCoords chunk);
 };
 
-struct FrustumCuller {
-	FrustumCuller(WorldContainer &worldContainer, Camera &camera) : worldContainer(worldContainer), camera(camera) {};
-
-	WorldContainer &worldContainer;
-	Camera &camera;
-
-	double cosineModifiedHalfFOV;
-	double frustumOffset;
-
-	bool isFrustumCulled(const ChunkCoords &chunkCoords);
-
-	double FOV;
-	double screenDiag;
-	double screenHeight;
-};
-
 struct ChunkBuilder {
 	ChunkBuilder(WorldContainer &worldContainer, BlockDefs &blocks) : worldContainer(worldContainer), blocks(blocks) {};
 
@@ -143,14 +127,17 @@ struct ChunkBuilder {
 };
 
 // Work pending
+
+
 struct ChunkLighting {
-	ChunkLighting(WorldContainer &worldContainer) : worldContainer(worldContainer) {};
+	ChunkLighting(WorldContainer &worldContainer);
 
 	WorldContainer &worldContainer;
 
+	UnifiedGLBufferContainer lightDataBuffer;
+
 	void updateLight(const ChunkCoords coords);
 	void uploadLight(int index);
-	SSBO lightDataOnGPU;
 };
 
 struct RayCastReturn {
@@ -217,7 +204,7 @@ struct RegionContainer {
 
 // A lot of work pending
 struct ChunkProcessManager {
-	ChunkProcessManager(WorldContainer &worldContainer, BlockDefs &blocks, ChunkPermeability &permeability, ChunkMeshingQueueGenerator &queueGenerator, ChunkGeneratingQueueGenerator &genQueueGenerator, FrustumCuller &frustumCuller, RegionContainer &regionContainer, Camera &camera);
+	ChunkProcessManager(WorldContainer &worldContainer, BlockDefs &blocks, ChunkPermeability &permeability, ChunkMeshingQueueGenerator &queueGenerator, ChunkGeneratingQueueGenerator &genQueueGenerator, RegionContainer &regionContainer, Camera &camera);
 
 	Camera &camera;
 
@@ -255,8 +242,6 @@ struct ChunkProcessManager {
 	ChunkMeshingQueueGenerator &queueGenerator;
 	ChunkGeneratingQueueGenerator &genQueueGenerator;
 
-	FrustumCuller &frustumCuller;
-
 	bool run = 1;
 
 	// Everything after this has a weird reason to exist, the reason is to be found at a later date
@@ -265,7 +250,7 @@ struct ChunkProcessManager {
 };
 
 struct Renderer {
-	Renderer(Shader &voxelShader, TextureArray &voxelBlockTextureArray, Sampler &voxelBlockTextureSampler, Camera &camera, WorldContainer &worldContainer, RegionContainer &regionContainer, ChunkLighting &lighting, BlockDefs &blocks, FrustumCuller &frustumCullerCpp, std::string dir);
+	Renderer(Shader &voxelShader, TextureArray &voxelBlockTextureArray, Sampler &voxelBlockTextureSampler, Camera &camera, WorldContainer &worldContainer, RegionContainer &regionContainer, ChunkLighting &lighting, BlockDefs &blocks, std::string dir);
 
 	newVAO voxelWorldVertexArray;
 
@@ -273,13 +258,16 @@ struct Renderer {
 	TextureArray &voxelBlockTextureArray;
 	Sampler &voxelBlockTextureSampler;
 
-	FrustumCuller &frustumCullerCpp;
 
 	Compute frustumCuller;
 	int locCamPosFRC;
 	int locCamDirFRC;
 	int locFrustumOffset;
 	int locCosineModifiedHalfFOV;
+
+	double FOV;
+	double screenDiag;
+	double screenHeight;
 
 	Compute orderingDrawCalls;
 	Compute drawCallConstructor;
@@ -322,6 +310,9 @@ struct Renderer {
 	// TODO
 	// void uploadLighting();
 
+	GLsync chunkVisibleArrSync;
+
+	void preRenderVoxelWorld();
 	void renderVoxelWorld();
 
 	void generateIBO();
@@ -360,7 +351,7 @@ struct VoxelGame {
 	ChunkPermeability permeability;
 	ChunkMeshingQueueGenerator queueGenerator;
 	ChunkGeneratingQueueGenerator genQueueGenerator;
-	FrustumCuller frustumCuller;
+	// FrustumCuller frustumCuller;
 
 	RegionContainer regionContainer;
 	

@@ -3,7 +3,7 @@
 #include "chunkDataContainer.h"
 #include "coordinateContainers.h"
 
-Renderer::Renderer(Shader &voxelShader, TextureArray &voxelBlockTextureArray, Sampler &voxelBlockTextureSampler, Camera &camera, WorldContainer &worldContainer, RegionContainer &regionContainer, ChunkLighting &lighting, BlockDefs &blocks, FrustumCuller &frustumCullerCpp, std::string dir) :
+Renderer::Renderer(Shader &voxelShader, TextureArray &voxelBlockTextureArray, Sampler &voxelBlockTextureSampler, Camera &camera, WorldContainer &worldContainer, RegionContainer &regionContainer, ChunkLighting &lighting, BlockDefs &blocks, std::string dir) :
 	voxelShader(voxelShader),
 	voxelBlockTextureArray(voxelBlockTextureArray),
 	voxelBlockTextureSampler(voxelBlockTextureSampler),
@@ -14,8 +14,7 @@ Renderer::Renderer(Shader &voxelShader, TextureArray &voxelBlockTextureArray, Sa
 	worldContainer(worldContainer),
 	regionContainer(regionContainer),
 	lighting(lighting),
-	blocks(blocks),
-	frustumCullerCpp(frustumCullerCpp) {
+	blocks(blocks) {
 
 		voxelWorldVertexArray.create();
 		voxelWorldVertexArray.bind();
@@ -44,20 +43,21 @@ Renderer::Renderer(Shader &voxelShader, TextureArray &voxelBlockTextureArray, Sa
 		glVertexArrayElementBuffer(voxelWorldVertexArray.ID, ibo.ID);
 
 		commandBuffer.create();
-		commandBuffer.allocate((((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2)) * sizeof(DrawCommandContainer));
+		commandBuffer.allocate((((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2)) * sizeof(DrawCommandContainer), GL_DYNAMIC_STORAGE_BIT);
 		commandBuffer.bindBufferBase(GL_SHADER_STORAGE_BUFFER, 0);
 
 		alternateCommandBuffer.create();
-		alternateCommandBuffer.allocate((((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2)) * sizeof(DrawCommandContainer));
+		alternateCommandBuffer.allocate((((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2)) * sizeof(DrawCommandContainer), 0);
 		alternateCommandBuffer.bindBufferBase(GL_SHADER_STORAGE_BUFFER, 4);
 
 		regionDataBuffer.create();
-		regionDataBuffer.allocate((((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2)) * sizeof(RegionDataContainer));
+		regionDataBuffer.allocate((((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2)) * sizeof(RegionDataContainer), GL_DYNAMIC_STORAGE_BIT);
 		regionDataBuffer.bindBufferBase(GL_SHADER_STORAGE_BUFFER, 2);
 
 		chunkViewableBuffer.create();
 		// We give 64 bits of data per region
-		chunkViewableBuffer.allocate((((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2)) * 64 * sizeof(unsigned int));
+		chunkViewableBuffer.allocate((((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2)) * 64 * sizeof(unsigned int), GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
+		chunkViewableBuffer.map(GL_MAP_READ_BIT | GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
 		chunkViewableBuffer.bindBufferBase(GL_SHADER_STORAGE_BUFFER, 1);
 
 		locCamPosFRC = glGetUniformLocation(frustumCuller.ID, "camPos");
@@ -97,41 +97,29 @@ void Renderer::regionCompileRoutine() {
 			}
 			region.uploadRegion();
 
-
-			// uploadMeshes(region);
-
 			int numQuads = region.mesh.size() / 8;
 			if (numQuads > maxQuads)
 				maxQuads = numQuads;
 
-			region.entirelyCulled = true;
+			region.numFilledChunks = 0;
 			for (int j = 0; j < REGION_SIZE * REGION_SIZE * REGION_SIZE; j++) {
-				if (!region.isChunkNull.test(j)) {
-					region.entirelyCulled &= true;
-				} else {
-					chunkVisibleArr[(64 * i) + j] = region.chunksInRegion[j]->meshSize > 0 && region.chunksInRegion[j]->unCompiledChunk == 0 && region.chunksInRegion[j]->occlusionUnCulled == true;
-
-					region.entirelyCulled &= !(region.chunksInRegion[j]->meshSize > 0 && region.chunksInRegion[j]->unCompiledChunk == 0 && region.chunksInRegion[j]->occlusionUnCulled == true && region.chunksInRegion[j]->frustumVisible == true);
-				}
+				if (region.isChunkNull.test(j))
+					chunkVisibleArr[(64 * i) + j] = region.chunksInRegion[j]->meshSize > 0 && !region.chunksInRegion[j]->unCompiledChunk && region.chunksInRegion[j]->occlusionUnCulled && region.ready && !region.empty;
+				else
+					chunkVisibleArr[(64 * i) + j] = false;
 			}
 		}
 	}
 
-	chunkViewableBuffer.upload(&chunkVisibleArr[0], sizeof(chunkVisibleArr), 0);
+	GLsync syncObj = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
-	frustumCuller.Activate();
+	GLenum waitReturn = GL_UNSIGNALED;
+	while (waitReturn != GL_ALREADY_SIGNALED && waitReturn != GL_CONDITION_SATISFIED)
+	    waitReturn = glClientWaitSync(syncObj, GL_SYNC_FLUSH_COMMANDS_BIT, 1);
 
-	glUniform3fv(locCamPosFRC, 1, &glm::vec3(camera.Position)[0]);
-	glUniform3fv(locCamDirFRC, 1, &glm::vec3(camera.Orientation)[0]);
+	std::memcpy(chunkViewableBuffer.persistentMappedPtr, &chunkVisibleArr, sizeof(chunkVisibleArr));
 
-	glUniform1f(locFrustumOffset, frustumCullerCpp.frustumOffset);
-	glUniform1f(locCosineModifiedHalfFOV, frustumCullerCpp.cosineModifiedHalfFOV);
-
-	frustumCuller.Dispatch(((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2));
-
-	orderingDrawCalls.Dispatch(((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2));
-
-	drawCallConstructor.Dispatch(((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2));
+	glFlushMappedNamedBufferRange(chunkViewableBuffer.ID, 0, sizeof(chunkVisibleArr));
 
 	if (maxQuads > oldMaxQuads)
 		generateIBO();
@@ -146,7 +134,7 @@ void Renderer::uploadMeshes(Region &region) {
 		for (int i = 0; i < REGION_SIZE * REGION_SIZE * REGION_SIZE; i++) {
 	    	region.baseVertex.at(i) += crntBaseVertex;
 
-		    region.indexOffset.at(i) = BUFFER_OFFSET(6 * (region.baseVertex.at(i) / 8) * sizeof(int));
+		    // region.indexOffset.at(i) = BUFFER_OFFSET(6 * (region.baseVertex.at(i) / 8) * sizeof(int));
 
 	    	if (region.isChunkNull.test(i)) {
 	    		if (region.chunksInRegion.at(i)->redoRegionMesh) {
@@ -220,6 +208,31 @@ void Renderer::populateRegionData(Region &region, int index) {
 	regionDataBuffer.upload(&region.regionData, sizeof(RegionDataContainer), index * sizeof(RegionDataContainer));
 }
 
+void Renderer::preRenderVoxelWorld() {
+
+	double frustumOffset = (double(CHUNK_SIZE) / 2) / tan(FOV / 2);
+    double cosineModifiedHalfFOV = cos(atan(screenDiag / (screenHeight / tan(FOV / 2))));
+
+	frustumCuller.Activate();
+
+	glUniform3fv(locCamPosFRC, 1, &glm::vec3(camera.Position)[0]);
+	glUniform3fv(locCamDirFRC, 1, &glm::vec3(camera.Orientation)[0]);
+
+	glUniform1f(locFrustumOffset, frustumOffset);
+	glUniform1f(locCosineModifiedHalfFOV, cosineModifiedHalfFOV);
+
+	frustumCuller.Dispatch(((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2));
+
+	orderingDrawCalls.Activate();
+	orderingDrawCalls.Dispatch(((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2));
+
+	glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
+	chunkVisibleArrSync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+
+	drawCallConstructor.Activate();
+	drawCallConstructor.Dispatch(((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2));
+}
+
 void Renderer::renderVoxelWorld() {
 
 	voxelShader.Activate();
@@ -234,16 +247,28 @@ void Renderer::renderVoxelWorld() {
     glUniform3fv(locSunDir, 1, &glm::vec3(sunDir)[0]);
 
     voxelWorldVertexArray.bind();
-    commandBuffer.bind(GL_DRAW_INDIRECT_BUFFER);
+    alternateCommandBuffer.bind(GL_DRAW_INDIRECT_BUFFER);
+
+
+    GLenum waitReturn = GL_UNSIGNALED;
+	while (waitReturn != GL_ALREADY_SIGNALED && waitReturn != GL_CONDITION_SATISFIED)
+	    waitReturn = glClientWaitSync(chunkVisibleArrSync, GL_SYNC_FLUSH_COMMANDS_BIT, 1);
+
+	glDeleteSync(chunkVisibleArrSync);
+
+	std::array<unsigned int, 64 * (((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2))> chunkVisibleArr;
+	std::memcpy(&chunkVisibleArr, chunkViewableBuffer.persistentMappedPtr, sizeof(chunkVisibleArr));
+
 
     for (int i = 0; i < regionContainer.regions.size(); i++) {
 		Region &region = regionContainer.regions[i];
-	    if (region.ready && region.empty == false && region.mesh.size() > 0 && !region.entirelyCulled) {    		   		
+	    if (region.ready && !region.empty && region.mesh.size() > 0 && (chunkVisibleArr[(64 * i) + 63] >> 2) > 0) {    		   		
 	    	glVertexArrayVertexBuffer(voxelWorldVertexArray.ID, 0, region.vbo.ID, 0, 2 * sizeof(unsigned int));
 
-	    	glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void*)(i * sizeof(DrawCommandContainer)), 64, 0);
+	    	glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void*)(i * sizeof(DrawCommandContainer)), std::min((chunkVisibleArr[(64 * i) + 63] >> 2), unsigned(64)), 0);
 	    }
     }
 
     voxelWorldVertexArray.unbind();
+    alternateCommandBuffer.unbind(GL_DRAW_INDIRECT_BUFFER);
 }

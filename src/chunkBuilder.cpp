@@ -102,10 +102,10 @@ int ChunkBuilder::blockAt(int coordX, int coordY, int coordZ, int index) {
 // }
 
 int ChunkBuilder::ambientOccIndex(int coordinates) {
-    int coordMask = 0b11111111;
-    int Z = ((coordinates & coordMask) + 4) / 8;
-    int Y = (((coordinates & (coordMask << 8)) >> 8) + 4) / 8;
-    int X = (((coordinates & (coordMask << 16)) >> 16) + 4) / 8;
+    int coordMask = 0b1111111111;
+    int Z = ((coordinates & coordMask) + 8) >> 4;
+    int Y = (((coordinates >> 10) & coordMask) + 8) >> 4;
+    int X = (((coordinates >> 20) & coordMask) + 8) >> 4;
     return ((X << 2) + (Y << 1) + Z) << 1;
 }
 
@@ -215,14 +215,13 @@ void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, int blockID, 
     unsigned int finalMap = (ambientOcc << 18/*8 bits*/) + (cullMap << 12/*6 bits*/) + (coordX << 8/*4 bits*/) + (coordY << 4/*4 bits*/) + (coordZ/*4 bits*/);
     unsigned int blockIDMap = blockID;
 
-
-    // we will be having 16x16x16 chunks, but each block will be made in an 8x8x8 grid, the mesh of the block will be predeterminned
+    // we will be having 32x32x32 chunks, but each block will be made in an 16x16x16 grid, the mesh of the block will be predeterminned
 
     // vertex format:
-    // | 4 bits for texture U | 4 bits for texture V | 8 bits for X | 8 bits for Y | 8 bits for Z |
-    // | 21 bits for texture coordinate | 3 bits for normal | 8 bits for ambient occlusion |
+    // | 10 bits for X | 10 bits for Y | 10 bits for Z |
+    // | 13 bits for texture coordinate | 4 bits for texture U | 4 bits for texture V | 3 bits for normal | 8 bit for ambient occlusion |
 
-    int offset = ((coordX << 16) + (coordY << 8) + (coordZ)) * 8;
+    int offset = ((coordX << 20) + (coordY << 10) + (coordZ)) << 4;
 
     // generating the mesh of the block using the given template
 
@@ -231,10 +230,10 @@ void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, int blockID, 
             int j = 8 * i;
             int ambientOccOfFace = (fastFloat::atBits(ambientOcc, ambientOccIndex(blocks.solidBlock.blockBitMap.at(j + 0)), 2) << 6) + (fastFloat::atBits(ambientOcc, ambientOccIndex(blocks.solidBlock.blockBitMap.at(j + 2)), 2) << 4) + (fastFloat::atBits(ambientOcc, ambientOccIndex(blocks.solidBlock.blockBitMap.at(j + 4)), 2) << 2) + fastFloat::atBits(ambientOcc, ambientOccIndex(blocks.solidBlock.blockBitMap.at(j + 6)), 2);
             std::vector<int> face = std::vector<int>(8);
-            face.at(0) = blocks.solidBlock.blockBitMap.at(j + 0) + offset;   face.at(1) = blocks.solidBlock.blockBitMap.at(j + 1) + ambientOccOfFace + (blockID << 11);
-            face.at(2) = blocks.solidBlock.blockBitMap.at(j + 2) + offset;   face.at(3) = blocks.solidBlock.blockBitMap.at(j + 3) + ambientOccOfFace + (blockID << 11);
-            face.at(4) = blocks.solidBlock.blockBitMap.at(j + 4) + offset;   face.at(5) = blocks.solidBlock.blockBitMap.at(j + 5) + ambientOccOfFace + (blockID << 11);
-            face.at(6) = blocks.solidBlock.blockBitMap.at(j + 6) + offset;   face.at(7) = blocks.solidBlock.blockBitMap.at(j + 7) + ambientOccOfFace + (blockID << 11);
+            face.at(0) = blocks.solidBlock.blockBitMap.at(j + 0) + offset;   face.at(1) = blocks.solidBlock.blockBitMap.at(j + 1) + ambientOccOfFace + (blockID << 19);
+            face.at(2) = blocks.solidBlock.blockBitMap.at(j + 2) + offset;   face.at(3) = blocks.solidBlock.blockBitMap.at(j + 3) + ambientOccOfFace + (blockID << 19);
+            face.at(4) = blocks.solidBlock.blockBitMap.at(j + 4) + offset;   face.at(5) = blocks.solidBlock.blockBitMap.at(j + 5) + ambientOccOfFace + (blockID << 19);
+            face.at(6) = blocks.solidBlock.blockBitMap.at(j + 6) + offset;   face.at(7) = blocks.solidBlock.blockBitMap.at(j + 7) + ambientOccOfFace + (blockID << 19);
             
             worldContainer.chunks[index].mesh.insert(worldContainer.chunks[index].mesh.end(), face.begin(), face.end());
         }

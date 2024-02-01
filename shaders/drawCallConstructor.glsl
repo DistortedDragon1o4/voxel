@@ -32,10 +32,11 @@ void main() {
 	uint regionIndex = (gl_WorkGroupID.x * gl_NumWorkGroups.y * gl_NumWorkGroups.z) + (gl_WorkGroupID.y * gl_NumWorkGroups.z) + gl_WorkGroupID.z;
 	uint chunkIndex = gl_LocalInvocationIndex;
 
-	uint crntIndex = chunkViewableBufferData.data[(64 * regionIndex) + chunkIndex] >> 2;
+	uint crntIndex = (chunkViewableBufferData.data[(64 * regionIndex) + chunkIndex] >> 2) - 1;
 
 	if (((chunkViewableBufferData.data[(64 * regionIndex) + chunkIndex] >> 1) & 1) == 1) {
 		alternateDrawCommandBufferData.drawCommandContainer[regionIndex].drawCommands[crntIndex] = drawCommandBufferData.drawCommandContainer[regionIndex].drawCommands[chunkIndex];
 		alternateDrawCommandBufferData.drawCommandContainer[regionIndex].drawCommands[crntIndex].instanceCount = 1;
+		alternateDrawCommandBufferData.drawCommandContainer[regionIndex].drawCommands[crntIndex].baseInstance = (chunkIndex << 26) | (0x3ffffff & alternateDrawCommandBufferData.drawCommandContainer[regionIndex].drawCommands[crntIndex].baseInstance);
 	}
 }

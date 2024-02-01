@@ -22,10 +22,9 @@ VoxelGame::VoxelGame(const int width, const int height, const glm::dvec3 positio
 	permeability(worldContainer, blocks),
 	queueGenerator(worldContainer, permeability),
 	genQueueGenerator(worldContainer),
-	frustumCuller(worldContainer, camera),
-	processManager(worldContainer, blocks, permeability, queueGenerator, genQueueGenerator, frustumCuller, regionContainer, camera),
+	processManager(worldContainer, blocks, permeability, queueGenerator, genQueueGenerator, regionContainer, camera),
 	interface(worldContainer, processManager, highlightCursor),
-	renderer(voxelShader, voxelBlockTextureArray, voxelBlockTextureSampler, camera, worldContainer, regionContainer, processManager.lighting, blocks, frustumCuller, dir) {
+	renderer(voxelShader, voxelBlockTextureArray, voxelBlockTextureSampler, camera, worldContainer, regionContainer, processManager.lighting, blocks, dir) {
 		voxelBlockTextureArray.TexUnit(voxelShader, "array", 0);
 	}
 
@@ -35,7 +34,7 @@ VoxelGame::~VoxelGame() {
 	voxelBlockTextureArray.Delete();
 }
 
-ChunkProcessManager::ChunkProcessManager(WorldContainer &worldContainer, BlockDefs &blocks, ChunkPermeability &permeability, ChunkMeshingQueueGenerator &queueGenerator, ChunkGeneratingQueueGenerator &genQueueGenerator, FrustumCuller &frustumCuller, RegionContainer &regionContainer, Camera &camera) :
+ChunkProcessManager::ChunkProcessManager(WorldContainer &worldContainer, BlockDefs &blocks, ChunkPermeability &permeability, ChunkMeshingQueueGenerator &queueGenerator, ChunkGeneratingQueueGenerator &genQueueGenerator, RegionContainer &regionContainer, Camera &camera) :
 	worldContainer(worldContainer),
 	blocks(blocks),
 	builder(worldContainer, blocks),
@@ -43,7 +42,6 @@ ChunkProcessManager::ChunkProcessManager(WorldContainer &worldContainer, BlockDe
 	permeability(permeability),
 	queueGenerator(queueGenerator),
 	genQueueGenerator(genQueueGenerator),
-	frustumCuller(frustumCuller),
 	regionContainer(regionContainer),
 	camera(camera) {}
 
@@ -56,16 +54,12 @@ bool WorldContainer::isEdgeChunk(int coordX, int coordY, int coordZ) {
 }
 
 void ChunkProcessManager::calculateLoadedChunks() {
-    frustumCuller.frustumOffset = (double(CHUNK_SIZE) / 2) / tan(frustumCuller.FOV / 2);
-    frustumCuller.cosineModifiedHalfFOV = cos(atan(frustumCuller.screenDiag / (frustumCuller.screenHeight / tan(frustumCuller.FOV / 2))));
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     while (run == 1) {
-    	frustumCuller.cosineModifiedHalfFOV = cos(atan(frustumCuller.screenDiag / (frustumCuller.screenHeight / tan(frustumCuller.FOV / 2))));
         for (int i = 0; i < (RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE); i++) {
             // float distance = sqrt(pow((worldContainer.chunks[i].chunkID[0] * CHUNK_SIZE) - camPosX + (CHUNK_SIZE / 2), 2) + pow((worldContainer.chunks[i].chunkID[1] * CHUNK_SIZE) - camPosY + (CHUNK_SIZE / 2), 2) + pow((worldContainer.chunks[i].chunkID[2] * CHUNK_SIZE) - camPosZ + (CHUNK_SIZE / 2), 2));
             float distance = abs((worldContainer.chunks[i].chunkID.x * CHUNK_SIZE) - camera.Position.x + (CHUNK_SIZE / 2)) + abs(((worldContainer.chunks[i].chunkID.y * CHUNK_SIZE) - camera.Position.y + (CHUNK_SIZE / 2))) + abs((worldContainer.chunks[i].chunkID.z * CHUNK_SIZE) - camera.Position.z + (CHUNK_SIZE / 2));
             worldContainer.chunks[i].distance = distance;
-            worldContainer.chunks.at(i).frustumVisible = frustumCuller.isFrustumCulled(worldContainer.chunks.at(i).chunkID);
         }
     }
 }

@@ -90,9 +90,12 @@ struct UnifiedGLBufferContainer {
 
     unsigned int ID;
     unsigned int size;
+    void* persistentMappedPtr;
 
-    void allocate(unsigned long size);
+    void allocate(unsigned long size, GLenum flags);
     void upload(void* data, unsigned long size, unsigned long byteIndex);
+
+    void map(GLenum flags);
 
     void bind(GLenum type);
     void bindBufferBase(GLenum type, unsigned int bindIndex);

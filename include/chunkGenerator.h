@@ -7,7 +7,7 @@
 
 #include "FastNoise/FastNoise.h"
 
-#define CHUNK_SIZE 16
+#define CHUNK_SIZE 32
 
 class ChunkGen {
 private:

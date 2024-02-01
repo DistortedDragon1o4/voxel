@@ -23,15 +23,18 @@ void UnifiedGLBufferContainer::unbind(GLenum type) {
 	glBindBuffer(type, ID);
 }
 
-void UnifiedGLBufferContainer::allocate(unsigned long size) {
-	size = size;
-	glNamedBufferStorage(ID, size, NULL, GL_DYNAMIC_STORAGE_BIT);
+void UnifiedGLBufferContainer::allocate(unsigned long size, GLenum flags) {
+	this->size = size;
+	glNamedBufferStorage(ID, size, NULL, flags);
 }
 
 void UnifiedGLBufferContainer::upload(void* data, unsigned long size, unsigned long byteIndex) {
 	glNamedBufferSubData(ID, byteIndex, size, data);
 }
 
+void UnifiedGLBufferContainer::map(GLenum flags) {
+	persistentMappedPtr = glMapNamedBufferRange(ID, 0, size, flags);
+}
 
 
 

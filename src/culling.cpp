@@ -2,25 +2,6 @@
 #include "chunkList.h"
 #include "glm/fwd.hpp"
 
-// Frustum culling
-
-bool FrustumCuller::isFrustumCulled(const ChunkCoords &chunkCoords) {
-	glm::dvec3 chunkBaseCoords = glm::dvec3(chunkCoords.x * CHUNK_SIZE, chunkCoords.y * CHUNK_SIZE, chunkCoords.z * CHUNK_SIZE);
-	glm::dvec3 camPos = glm::dvec3(camera.Position.x, camera.Position.y, camera.Position.z) - (frustumOffset * camera.Orientation);
-	for (int i = 0; i < CHUNK_SIZE + 1; i += CHUNK_SIZE) {
-		for (int j = 0; j < CHUNK_SIZE + 1; j += CHUNK_SIZE) {
-			for (int k = 0; k < CHUNK_SIZE + 1; k += CHUNK_SIZE) {
-				glm::dvec3 crntVertCoords = glm::dvec3(chunkBaseCoords.x + i, chunkBaseCoords.y + j, chunkBaseCoords.z + k);
-				double dot = glm::dot(glm::normalize(crntVertCoords - camPos), camera.Orientation);
-				if (dot >= cosineModifiedHalfFOV)
-					return true;
-			}
-		}
-	}
-	return false;
-}
-
-
 // Check the permeability of a chunk for occlusion culling
 
 int ChunkPermeability::getBlockIndex(int x, int y, int z) {
@@ -148,7 +129,7 @@ void ChunkMeshingQueueGenerator::doBFS(const ChunkCoords chunk) {
         ChunkDataContainer &chunkObj = worldContainer.chunks.at(crntChunkIndex);
         if (chunkObj.unGeneratedChunk == false && chunkObj.isPermeableCheckDone == false)
             permeability.checkPermeability(chunkObj);
-        if (chunkObj.unCompiledChunk == true && chunkObj.frustumVisible == true && chunkObj.unGeneratedChunk == false && chunkObj.isPermeableCheckDone == true && chunkObj.inQueue == false && worldContainer.isEdgeChunk(crntChunk.x, crntChunk.y, crntChunk.z) == false) {
+        if (chunkObj.unCompiledChunk == true && chunkObj.unGeneratedChunk == false && chunkObj.isPermeableCheckDone == true && chunkObj.inQueue == false && worldContainer.isEdgeChunk(crntChunk.x, crntChunk.y, crntChunk.z) == false) {
             chunkMeshingQueue[!crntMeshingQueue].push(crntChunkIndex);
             chunkObj.inQueue = true;
         }
