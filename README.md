@@ -8,12 +8,9 @@
 
 <br>
 
-![Badge Workflow]
-[![Badge Issues]][Issues] 
-[![Badge Pull Requests]][Pull Requests] 
-[![Badge Stars]][Stars] 
-
-
+![GitHub license](https://img.shields.io/github/license/DistortedDragon1o4/voxel.svg)
+![GitHub issues](https://img.shields.io/github/issues/DistortedDragon1o4/voxel.svg)
+![GitHub stars](https://img.shields.io/github/stars/DistortedDragon1o4/voxel)
 </div>>
 
 This is an experimental voxel engine written by in C++
