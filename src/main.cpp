@@ -110,6 +110,10 @@ int main(int argc, char** argv) {
 		return EXIT_FAILURE;
 	}
 
+	GLFWimage favicon;
+	favicon.pixels = stbi_load((dir + "/assets/favicon.png").c_str(), &favicon.width, &favicon.height, 0, 4);
+	glfwSetWindowIcon(window, 1, &favicon);
+
 	glfwMakeContextCurrent(window);
 
 	glfwSwapInterval(0);
