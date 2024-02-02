@@ -158,12 +158,12 @@ void main() {
 
 	camDistance = distance(vec3(mesh), camPos);
 
-	const int texMask = 0xff;
+	const int texMask = 0x3ff;
 	int texMap = (dataBlock2 >> 11) & texMask;
-	ivec2 texInt = ivec2(texMap >> 4, texMap & 0xf);
-	texCoord = vec2(float(texInt.x / 8.0), float(texInt.y / 8.0));
+	ivec2 texInt = ivec2(texMap >> 5, texMap & 0x1f);
+	texCoord = vec2(float(texInt.x / 16.0), float(texInt.y / 16.0));
 
-	blockID = int(dataBlock2 >> 19);
+	blockID = int(dataBlock2 >> 21);
 
 	const int normalMask = 0x7;
 	int normalIdx = (dataBlock2 >> 8) & normalMask;

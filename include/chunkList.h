@@ -27,7 +27,9 @@
 // P.S. restructure this entire file
 
 struct BlockDefs {
-	BlockDefs();
+	BlockDefs(std::string dir);
+
+	void parseModel(std::vector<unsigned int> &model, std::vector<unsigned int> &blockBitMap, std::vector<int> &faceType);
 
 	std::array<Blocks, NUM_BLOCKS> blocks;
 	BlockTemplate solidBlock;

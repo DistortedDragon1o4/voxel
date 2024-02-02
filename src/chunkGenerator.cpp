@@ -32,11 +32,11 @@ void ChunkGen::generateChunk(std::vector<short> &chunk, int coordX, int coordY, 
                     chunk[(k * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + i] = 3;
                 }*/
                 if (dataContainer[index] <= 0) {
-                    chunk[(k * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + i] = 2;
+                    chunk[(k * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + i] = 1;
                     // if (dataContainer2[index] < 0)
                     //     chunk[(k * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + i] = 4;
                     if (dataContainer3[index] < 0)
-                        chunk[(k * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + i] = 3;
+                        chunk[(k * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + i] = 2;
                 }
 
                 // if (i == 5)

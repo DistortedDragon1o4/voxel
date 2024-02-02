@@ -1,8 +1,8 @@
 {
-	"name": "grass",
+	"name": "block_name",
 	"id": 1,
 	"isSolid": 1,
 	"model": [
-		U, V, X, Y, Z, Normal, CanCull, CullsOthers, TexIndex
+		U, V, X, Y, Z, Normal, CanBeCulled, CullsOthers, TexIndex
 	]
 }

@@ -110,6 +110,7 @@ int ChunkBuilder::ambientOccIndex(int coordinates) {
 }
 
 void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, int blockID, int index) {
+    Blocks &crntBlock = blocks.blocks[blockID];
 
     // this is the cull bitmap, 1 means the face is culled, 0 means the face is visible
     // the order is as follows:
@@ -213,7 +214,6 @@ void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, int blockID, 
                                 + (((std::popcount(vert000) >> 1) + (std::popcount(vert000) == 3) + (std::popcount(faceVert000) >= 1 && std::popcount(vert000) == 2)) << 0);
 
     unsigned int finalMap = (ambientOcc << 18/*8 bits*/) + (cullMap << 12/*6 bits*/) + (coordX << 8/*4 bits*/) + (coordY << 4/*4 bits*/) + (coordZ/*4 bits*/);
-    unsigned int blockIDMap = blockID;
 
     // we will be having 32x32x32 chunks, but each block will be made in an 16x16x16 grid, the mesh of the block will be predeterminned
 
@@ -225,15 +225,15 @@ void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, int blockID, 
 
     // generating the mesh of the block using the given template
 
-    for (int i = 0; i < blocks.solidBlock.faceType.size(); i++) {
-        if (!fastFloat::atBit(cullMap, blocks.solidBlock.faceType.at(i))) {
+    for (int i = 0; i < crntBlock.model.size() / 36; i++) {
+        if (!fastFloat::atBit(cullMap, crntBlock.faceType[i])) {
             int j = 8 * i;
-            int ambientOccOfFace = (fastFloat::atBits(ambientOcc, ambientOccIndex(blocks.solidBlock.blockBitMap.at(j + 0)), 2) << 6) + (fastFloat::atBits(ambientOcc, ambientOccIndex(blocks.solidBlock.blockBitMap.at(j + 2)), 2) << 4) + (fastFloat::atBits(ambientOcc, ambientOccIndex(blocks.solidBlock.blockBitMap.at(j + 4)), 2) << 2) + fastFloat::atBits(ambientOcc, ambientOccIndex(blocks.solidBlock.blockBitMap.at(j + 6)), 2);
+            int ambientOccOfFace = (fastFloat::atBits(ambientOcc, ambientOccIndex(crntBlock.blockBitMap.at(j + 0)), 2) << 6) + (fastFloat::atBits(ambientOcc, ambientOccIndex(crntBlock.blockBitMap.at(j + 2)), 2) << 4) + (fastFloat::atBits(ambientOcc, ambientOccIndex(crntBlock.blockBitMap.at(j + 4)), 2) << 2) + fastFloat::atBits(ambientOcc, ambientOccIndex(crntBlock.blockBitMap.at(j + 6)), 2);
             std::vector<int> face = std::vector<int>(8);
-            face.at(0) = blocks.solidBlock.blockBitMap.at(j + 0) + offset;   face.at(1) = blocks.solidBlock.blockBitMap.at(j + 1) + ambientOccOfFace + (blockID << 19);
-            face.at(2) = blocks.solidBlock.blockBitMap.at(j + 2) + offset;   face.at(3) = blocks.solidBlock.blockBitMap.at(j + 3) + ambientOccOfFace + (blockID << 19);
-            face.at(4) = blocks.solidBlock.blockBitMap.at(j + 4) + offset;   face.at(5) = blocks.solidBlock.blockBitMap.at(j + 5) + ambientOccOfFace + (blockID << 19);
-            face.at(6) = blocks.solidBlock.blockBitMap.at(j + 6) + offset;   face.at(7) = blocks.solidBlock.blockBitMap.at(j + 7) + ambientOccOfFace + (blockID << 19);
+            face.at(0) = crntBlock.blockBitMap.at(j + 0) + offset;   face.at(1) = crntBlock.blockBitMap.at(j + 1) + ambientOccOfFace;
+            face.at(2) = crntBlock.blockBitMap.at(j + 2) + offset;   face.at(3) = crntBlock.blockBitMap.at(j + 3) + ambientOccOfFace;
+            face.at(4) = crntBlock.blockBitMap.at(j + 4) + offset;   face.at(5) = crntBlock.blockBitMap.at(j + 5) + ambientOccOfFace;
+            face.at(6) = crntBlock.blockBitMap.at(j + 6) + offset;   face.at(7) = crntBlock.blockBitMap.at(j + 7) + ambientOccOfFace;
             
             worldContainer.chunks[index].mesh.insert(worldContainer.chunks[index].mesh.end(), face.begin(), face.end());
         }

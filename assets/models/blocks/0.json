@@ -1,6 +1,8 @@
 {
 	"name": "air",
 	"id": 0,
-	"isSolid": 0,
-	"model": [],
+	"isSolid": false,
+	"castsAO": false,
+	"lightEmmision": 0,
+	"model": []
 }

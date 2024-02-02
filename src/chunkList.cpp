@@ -14,8 +14,9 @@
 
 VoxelGame::VoxelGame(const int width, const int height, const glm::dvec3 position, const std::string dir) :
 	voxelShader(dir + "/shaders/vertex.glsl", dir + "/shaders/fragment.glsl"),
-	voxelBlockTextureArray(0, "blocks/", 1, NUM_BLOCKS, dir + "/"),
+	voxelBlockTextureArray(0, "blocks/", 1, NUM_TEXTURES, dir + "/"),
 	camera(width, height, position),
+    blocks(dir),
 	worldContainer(camera),
 	rayCaster(worldContainer),
 	highlightCursor(rayCaster, camera, dir),
