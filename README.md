@@ -56,8 +56,9 @@ Also I have no idea if this will compile, let alone run on any non Linux systems
 1. First clone the project
 2. Open a terminal in project root and run `xmake` this will install the dependencies and try to compile the project, if it compiles, you may skip to step 5
 3. If it does not compile, just report it on the Issues page
-4. If you are on any other architechture other than x86_64, you will need to download the files of [FastNoise2](https://github.com/Auburn/FastNoise2/releases/tag/v0.10.0-alpha) for your respective architecture and put the files of include and lib in the correct places
-5. To run the programme `LD_LIBRARY_PATH=[path to the lib directory in project] ./build/linux/[your architecture]/release/voxel [absolute path to project root]`
+4. If you are on any other architechture other than x86_64, you will need to download the files of [FastNoise2](https://github.com/Auburn/FastNoise2/releases/tag/v0.10.0-alpha) for your respective architecture and put the files of include and lib in the correct places inside the project folder
+5. Copy the contents of `lib/` to `~/.local/lib/`, this can be done with `cp -r lib/* ~/.local/lib/`
+5. To run the programme `./build/linux/[your architecture]/release/voxel [absolute path to project root]`
 
 ## Reporting Bugs:
 I know that there are a lot of bugs, if you still feel the urge to report a bug (or suggest a fix maybe) please ensure the following while you report it
