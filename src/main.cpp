@@ -23,6 +23,8 @@
 #include <future>
 #include <thread>
 
+#include "FastNoise/Generators/Generator.h"
+#include "FastNoise/Generators/Perlin.h"
 #include "chunkDataContainer.h"
 #include "glm/trigonometric.hpp"
 #include "stb/stb_image.h"
@@ -217,7 +219,11 @@ int main(int argc, char** argv) {
 	unsigned long counter = 1;
 	int chunkCount = 0;
 
-	std::cout << sizeof(VoxelGame) << "\n";
+	auto a = FastNoise::New<FastNoise::Perlin>();
+
+	std::cout << sizeof(VoxelGame) << " " << a->GenSingle3D(1.0, 1.0, 1.0, 1) << "\n";
+
+	voxel.renderer.chunkVisibleArrSync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwGetFramebufferSize(window, &width, &height);
@@ -273,9 +279,8 @@ int main(int argc, char** argv) {
 
 		voxel.highlightCursor.positionCursor();
 
-		// for (int i = 0; i < voxel.worldContainer.chunks.size(); i++)
-		// 	if (!voxel.worldContainer.chunks[i].lightUploaded && voxel.worldContainer.chunks[i].lightReadyToUpload)
-		// 		voxel.processManager.lighting.uploadLight(i);
+		for (int i = 0; i < voxel.worldContainer.chunks.size(); i++)
+			voxel.processManager.lighting.updateLight(voxel.worldContainer.chunks[i]);
 
 		voxel.renderer.renderVoxelWorld();
 
@@ -324,7 +329,7 @@ int main(int argc, char** argv) {
 		std::string facingString = "Facing: " + std::to_string(voxel.camera.sphericalOrientation.x) + " | " + std::to_string(voxel.camera.sphericalOrientation.y);
 		ImGui::Text("%s", facingString.c_str());
 		if (voxel.highlightCursor.crntLookingAtBlock.blockPos != glm::ivec3(2147483647, 2147483647, 2147483647)) {
-			std::string blockPosString = "Looking At: " + std::to_string(voxel.highlightCursor.crntLookingAtBlock.blockPos.x) + " | " + std::to_string(voxel.highlightCursor.crntLookingAtBlock.blockPos.y) + " | " + std::to_string(voxel.highlightCursor.crntLookingAtBlock.blockPos.z);
+			std::string blockPosString = "Looking At: " + std::to_string(voxel.highlightCursor.crntLookingAtBlock.blockPos.x) + " | " + std::to_string(voxel.highlightCursor.crntLookingAtBlock.blockPos.y) + " | " + std::to_string(voxel.highlightCursor.crntLookingAtBlock.blockPos.z) + " | " + std::to_string(voxel.highlightCursor.crntLookingAtBlock.lightVal);
 			ImGui::Text("%s", blockPosString.c_str());
 		}
 		ImGui::End();

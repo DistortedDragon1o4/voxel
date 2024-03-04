@@ -2,6 +2,7 @@
 #define CHUNK_LIST_CLASS_H
 
 #include "camera.h"
+#include "coordinateContainers.h"
 #include "fastFloat.h"
 #include "glm/glm.hpp"
 #include <bits/stdc++.h>
@@ -55,54 +56,84 @@ struct WorldContainer {
 	bool isEdgeChunk(int coordX, int coordY, int coordZ);
 };
 
-struct ChunkPermeability {
-	ChunkPermeability(WorldContainer &worldContainer, BlockDefs &blocks) : worldContainer(worldContainer), blocks(blocks) {};
+// struct ChunkPermeability {
+// 	ChunkPermeability(WorldContainer &worldContainer, BlockDefs &blocks) : worldContainer(worldContainer), blocks(blocks) {};
 
-	WorldContainer &worldContainer;
-	BlockDefs &blocks;
+// 	WorldContainer &worldContainer;
+// 	BlockDefs &blocks;
 
-	void checkPermeability(ChunkDataContainer &chunk);
-	std::queue<int> BFSqueuePermeability;
-	void doBlockBFSforPermeability(int startIndex, short &neighbours, ChunkDataContainer &chunk, std::array<bool, CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE> &chunkDataBFSvisited);
-	void searchNeighbouringBlocks(int blockIndex, ChunkDataContainer &chunk, std::array<bool, CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE> &chunkDataBFSvisited);
-	int getBlockIndex(int x, int y, int z);
-	short facing(int index);
-	short generatePermeability(short &neighbours);
+// 	void checkPermeability(ChunkDataContainer &chunk);
+// 	std::queue<int> BFSqueuePermeability;
+// 	void doBlockBFSforPermeability(int startIndex, short &neighbours, ChunkDataContainer &chunk, std::array<bool, CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE> &chunkDataBFSvisited);
+// 	void searchNeighbouringBlocks(int blockIndex, ChunkDataContainer &chunk, std::array<bool, CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE> &chunkDataBFSvisited);
+// 	int getBlockIndex(int x, int y, int z);
+// 	short facing(int index);
+// 	short generatePermeability(short &neighbours);
 
-	short permeabilityIndex(int a, int b);
-};
+// 	short permeabilityIndex(int a, int b);
+// };
 
-struct ChunkMeshingQueueGenerator {
-	ChunkMeshingQueueGenerator(WorldContainer &worldContainer, ChunkPermeability &permeability) : worldContainer(worldContainer), permeability(permeability) {};
+// struct ChunkMeshingQueueGenerator {
+// 	ChunkMeshingQueueGenerator(WorldContainer &worldContainer, ChunkPermeability &permeability) : worldContainer(worldContainer), permeability(permeability) {};
 
-	WorldContainer &worldContainer;
-	ChunkPermeability &permeability;
+// 	WorldContainer &worldContainer;
+// 	ChunkPermeability &permeability;
 
-	bool crntMeshingQueue;
+// 	bool crntMeshingQueue;
 
-	std::array<std::queue<int>, 2> chunkMeshingQueue;
-	std::queue<ChunkCoords> BFSqueue;
+// 	std::array<std::queue<int>, 2> chunkMeshingQueue;
+// 	std::queue<ChunkCoords> BFSqueue;
 
-	std::array<bool, RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE> localOcclusionUnCulled = {0};
+// 	std::array<bool, RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE> localOcclusionUnCulled = {0};
 
 
-	void searchNeighbouringChunks(const ChunkCoords chunkID);
-	void doBFS(const ChunkCoords chunk);
-};
+// 	void searchNeighbouringChunks(const ChunkCoords chunkID);
+// 	void doBFS(const ChunkCoords chunk);
+// };
 
-struct ChunkGeneratingQueueGenerator {
-	ChunkGeneratingQueueGenerator(WorldContainer &worldContainer) : worldContainer(worldContainer) {};
+// struct ChunkGeneratingQueueGenerator {
+// 	ChunkGeneratingQueueGenerator(WorldContainer &worldContainer) : worldContainer(worldContainer) {};
 
-	WorldContainer &worldContainer;
+// 	WorldContainer &worldContainer;
 
-	bool crntGeneratingQueue;
+// 	bool crntGeneratingQueue;
 
-	std::array<std::queue<int>, 2> chunkGeneratingQueue;
-	std::queue<ChunkCoords> BFSqueue;
+// 	std::array<std::queue<int>, 2> chunkGeneratingQueue;
+// 	std::queue<ChunkCoords> BFSqueue;
 
-	void searchNeighbouringChunks(const ChunkCoords chunkID);
-	void doBFS(const ChunkCoords chunk);
-};
+// 	void searchNeighbouringChunks(const ChunkCoords chunkID);
+// 	void doBFS(const ChunkCoords chunk);
+// };
+
+// struct MeshingQueue {
+// 	MeshingQueue(WorldContainer &worldContainer) : worldContainer(worldContainer) {};
+
+// 	WorldContainer &worldContainer;
+
+// 	bool crntQueue = 0;
+
+// 	std::array<std::queue<unsigned int>, 2> queue;
+
+// 	std::queue<unsigned int> BFSqueue;
+
+// 	void searchNeighbouringChunks(ChunkDataContainer &chunk);
+// 	void doBFS(const ChunkCoords chunkCoord);
+// };
+
+// struct GeneratingQueue {
+// 	GeneratingQueue(WorldContainer &worldContainer) : worldContainer(worldContainer) {};
+
+// 	WorldContainer &worldContainer;
+
+// 	bool crntQueue = 0;
+
+// 	std::array<std::queue<unsigned int>, 2> queue;
+
+// 	std::queue<unsigned int> BFSqueue;
+
+// 	void searchNeighbouringChunks(ChunkDataContainer &chunk);
+// 	void doBFS(const ChunkCoords chunkCoord);
+// };
 
 struct ChunkBuilder {
 	ChunkBuilder(WorldContainer &worldContainer, BlockDefs &blocks) : worldContainer(worldContainer), blocks(blocks) {};
@@ -110,36 +141,50 @@ struct ChunkBuilder {
 	WorldContainer &worldContainer;
 	BlockDefs &blocks;
 
-	unsigned int call = 0;
 	bool discardChunk = 0;
 
-	// To be replaced by ChunkCoords object
-	int chunkX;
-	int chunkY;
-	int chunkZ;
-
 	std::array<short, (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)> cachedBlocks = {-1};
-	void combineFace(int coordX, int coordY, int coordZ, int blockID, int index);
-	int blockAt(int coordX, int coordY, int coordZ, int index);
-	int globalBlockAt(int coordX, int coordY, int coordZ, int index);
+	
+
+	int buildChunk(ChunkDataContainer &chunk);
+
+	void combineFace(int coordX, int coordY, int coordZ, ChunkDataContainer &chunk);
+	int blockAt(int coordX, int coordY, int coordZ, ChunkDataContainer &chunk);
+	int blockAtNeighbouringChunk(int coordX, int coordY, int coordZ, ChunkDataContainer &crntChunk);
+
 	int cachedBlockAt(int coordX, int coordY, int coordZ);
-	void doIndices(int index);
 	int ambientOccIndex(int coordinates);
-	void buildChunk(int index);
 };
 
-// Work pending
-
+struct LightingBFSQueueItem {
+	ChunkDataContainer &chunk;
+    BlockCoords coords;
+    int distance;
+};
 
 struct ChunkLighting {
-	ChunkLighting(WorldContainer &worldContainer);
+	ChunkLighting(WorldContainer &worldContainer, BlockDefs &blocks);
 
 	WorldContainer &worldContainer;
+	BlockDefs &blocks;
 
 	UnifiedGLBufferContainer lightDataBuffer;
 
-	void updateLight(const ChunkCoords coords);
+	void updateLight(ChunkDataContainer &chunk);
 	void uploadLight(int index);
+	void lightAO(ChunkDataContainer &chunk);
+
+	void propagateLight(const BlockCoords coords, const char channel, const unsigned char value, ChunkDataContainer &chunk);
+	bool setLight(const BlockCoords coords, const char channel, const unsigned char value, ChunkDataContainer &chunks);
+
+	void depropagateLight(const BlockCoords coords, const char channel, const unsigned char value, ChunkDataContainer &chunk);
+	bool removeLight(const BlockCoords coords, const char channel, const unsigned char value, ChunkDataContainer &chunks);
+
+	std::queue<LightingBFSQueueItem> BFSqueue;
+	std::vector<unsigned int> visitedChunkIndices;
+
+	void addNeighboursToQueue(const BlockCoords coords, int distance, ChunkDataContainer &chunk);
+	int getBlockIndex(int x, int y, int z);
 };
 
 struct RayCastReturn {
@@ -147,6 +192,8 @@ struct RayCastReturn {
 	glm::ivec3 prevBlockPos;
 	int blockPosIndex;
 	int prevBlockPosIndex;
+
+	int lightVal;
 };
 
 struct RayCaster {
@@ -206,7 +253,7 @@ struct RegionContainer {
 
 // A lot of work pending
 struct ChunkProcessManager {
-	ChunkProcessManager(WorldContainer &worldContainer, BlockDefs &blocks, ChunkPermeability &permeability, ChunkMeshingQueueGenerator &queueGenerator, ChunkGeneratingQueueGenerator &genQueueGenerator, RegionContainer &regionContainer, Camera &camera);
+	ChunkProcessManager(WorldContainer &worldContainer, BlockDefs &blocks, RegionContainer &regionContainer, Camera &camera);
 
 	Camera &camera;
 
@@ -238,11 +285,7 @@ struct ChunkProcessManager {
 
 	void calculateLoadedChunks();
 
-
-	ChunkPermeability &permeability;
-
-	ChunkMeshingQueueGenerator &queueGenerator;
-	ChunkGeneratingQueueGenerator &genQueueGenerator;
+	ChunkCoords prevCameraChunk;
 
 	bool run = 1;
 
@@ -349,11 +392,6 @@ struct VoxelGame {
 
 	RayCaster rayCaster;
 	HighlightCursor highlightCursor;
-
-	ChunkPermeability permeability;
-	ChunkMeshingQueueGenerator queueGenerator;
-	ChunkGeneratingQueueGenerator genQueueGenerator;
-	// FrustumCuller frustumCuller;
 
 	RegionContainer regionContainer;
 	

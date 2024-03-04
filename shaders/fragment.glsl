@@ -20,7 +20,7 @@ uniform vec3 sunDir;
 
 out vec4 FragColor;
 
-float sunStrength = 1.0f;
+float sunStrength = 0.0f;
 vec3 sunColor = vec3(0.9882f, 0.9450f, 0.8117f);
 float moonStrength = 1.0f;
 vec3 moonColor = vec3(0.6117f, 0.7450f, 0.7882f);

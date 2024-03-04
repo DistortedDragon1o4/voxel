@@ -36,61 +36,44 @@ int WorldContainer::getIndex(const int chunkCoordX, const int chunkCoordY, const
     return index;
 }
 
-int ChunkBuilder::globalBlockAt(int coordX, int coordY, int coordZ, int index) {
-    ChunkCoords currentChunk;
-    currentChunk.x = chunkX;
-    currentChunk.y = chunkY;
-    currentChunk.z = chunkZ;
-    int x = coordX;
-    int y = coordY;
-    int z = coordZ;
+int ChunkBuilder::blockAtNeighbouringChunk(int coordX, int coordY, int coordZ, ChunkDataContainer &crntChunk) {
+    int a = 1;
+    int b = 1;
+    int c = 1;
+
     if (coordX < 0) {
-        currentChunk.x = chunkX - 1;
-        x = CHUNK_SIZE - 1;
+        a = 0;
     } else if (coordX >= CHUNK_SIZE) {
-        currentChunk.x = chunkX + 1;
-        x = 0;
+        a = 2;
     }
     if (coordY < 0) {
-        currentChunk.y = chunkY - 1;
-        y = CHUNK_SIZE - 1;
+        b = 0;
     } else if (coordY >= CHUNK_SIZE) {
-        currentChunk.y = chunkY + 1;
-        y = 0;
+        b = 2;
     }
     if (coordZ < 0) {
-        currentChunk.z = chunkZ - 1;
-        z = CHUNK_SIZE - 1;
+        c = 0;
     } else if (coordZ >= CHUNK_SIZE) {
-        currentChunk.z = chunkZ + 1;
-        z = 0;
+        c = 2;
     }
 
-    bool match = 0;
-    int currentIndex = worldContainer.getIndex(currentChunk);
-
-    if (currentIndex >= 0 && currentIndex < worldContainer.chunks.size() && worldContainer.chunks.at(currentIndex).chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) {
-        try {
-            return worldContainer.chunks.at(currentIndex).chunkData.at((x * CHUNK_SIZE * CHUNK_SIZE) + (y * CHUNK_SIZE) + z);
-        } catch (const std::out_of_range& oor) {
-            std::cerr << "Out of Range error: " << oor.what() << "\n";
-            discardChunk = 1;
-            return 0;
-        }
+    int neighbourIndex = crntChunk.neighbouringChunkIndices[(a * 9) + (b * 3) + c];
+    if (neighbourIndex != -1 && worldContainer.chunks[neighbourIndex].unGeneratedChunk == false) {
+        return worldContainer.chunks[neighbourIndex].blockAtCoords(fastFloat::mod(coordX, CHUNK_SIZE), fastFloat::mod(coordY, CHUNK_SIZE), fastFloat::mod(coordZ, CHUNK_SIZE));
     } else {
-        discardChunk = 1;
+        discardChunk = true;
+        return 0;
     }
-    return 0;
 }
 
 int ChunkBuilder::cachedBlockAt(int coordX, int coordY, int coordZ) {
     return cachedBlocks[(coordX * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (coordY * (CHUNK_SIZE + 2)) + coordZ];
 }
 
-int ChunkBuilder::blockAt(int coordX, int coordY, int coordZ, int index) {
+int ChunkBuilder::blockAt(int coordX, int coordY, int coordZ, ChunkDataContainer &chunk) {
     int block = cachedBlockAt(coordX + 1, coordY + 1, coordZ + 1);
     if (block == -1) {
-        block = globalBlockAt(coordX, coordY, coordZ, index);
+        block = blockAtNeighbouringChunk(coordX, coordY, coordZ, chunk);
         cachedBlocks[((coordX + 1) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + ((coordY + 1) * (CHUNK_SIZE + 2)) + (coordZ + 1)] = block;
     }
     return block;
@@ -109,7 +92,8 @@ int ChunkBuilder::ambientOccIndex(int coordinates) {
     return ((X << 2) + (Y << 1) + Z) << 1;
 }
 
-void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, int blockID, int index) {
+void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, ChunkDataContainer &chunk) {
+    int blockID = chunk.blockAtCoords(coordX, coordY, coordZ);
     Blocks &crntBlock = blocks.blocks[blockID];
 
     // this is the cull bitmap, 1 means the face is culled, 0 means the face is visible
@@ -120,40 +104,40 @@ void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, int blockID, 
     // left
     // top
     // bottom
-    unsigned int cullMap =    ((blocks.blocks[blockAt(coordX, coordY, coordZ + 1, index)].isSolid | (blockAt(coordX, coordY, coordZ + 1, index) == blockID)) << 5)
-                            + ((blocks.blocks[blockAt(coordX, coordY, coordZ - 1, index)].isSolid | (blockAt(coordX, coordY, coordZ - 1, index) == blockID)) << 4)
-                            + ((blocks.blocks[blockAt(coordX + 1, coordY, coordZ, index)].isSolid | (blockAt(coordX + 1, coordY, coordZ, index) == blockID)) << 3)
-                            + ((blocks.blocks[blockAt(coordX - 1, coordY, coordZ, index)].isSolid | (blockAt(coordX - 1, coordY, coordZ, index) == blockID)) << 2)
-                            + ((blocks.blocks[blockAt(coordX, coordY + 1, coordZ, index)].isSolid | (blockAt(coordX, coordY + 1, coordZ, index) == blockID)) << 1)
-                            +  (blocks.blocks[blockAt(coordX, coordY - 1, coordZ, index)].isSolid | (blockAt(coordX, coordY - 1, coordZ, index) == blockID));
+    unsigned int cullMap =    ((blocks.blocks[blockAt(coordX, coordY, coordZ + 1, chunk)].isSolid | (blockAt(coordX, coordY, coordZ + 1, chunk) == blockID)) << 5)
+                            + ((blocks.blocks[blockAt(coordX, coordY, coordZ - 1, chunk)].isSolid | (blockAt(coordX, coordY, coordZ - 1, chunk) == blockID)) << 4)
+                            + ((blocks.blocks[blockAt(coordX + 1, coordY, coordZ, chunk)].isSolid | (blockAt(coordX + 1, coordY, coordZ, chunk) == blockID)) << 3)
+                            + ((blocks.blocks[blockAt(coordX - 1, coordY, coordZ, chunk)].isSolid | (blockAt(coordX - 1, coordY, coordZ, chunk) == blockID)) << 2)
+                            + ((blocks.blocks[blockAt(coordX, coordY + 1, coordZ, chunk)].isSolid | (blockAt(coordX, coordY + 1, coordZ, chunk) == blockID)) << 1)
+                            +  (blocks.blocks[blockAt(coordX, coordY - 1, coordZ, chunk)].isSolid | (blockAt(coordX, coordY - 1, coordZ, chunk) == blockID));
 
-    unsigned int ambientOccMap =      (blocks.blocks[blockAt(coordX + 1, coordY + 1, coordZ + 1, index)].castsAO << 26)
-                                    + (blocks.blocks[blockAt(coordX + 1, coordY + 1, coordZ, index)].castsAO << 25)
-                                    + (blocks.blocks[blockAt(coordX + 1, coordY + 1, coordZ - 1, index)].castsAO << 24)
-                                    + (blocks.blocks[blockAt(coordX + 1, coordY, coordZ + 1, index)].castsAO << 23)
+    unsigned int ambientOccMap =      (blocks.blocks[blockAt(coordX + 1, coordY + 1, coordZ + 1, chunk)].castsAO << 26)
+                                    + (blocks.blocks[blockAt(coordX + 1, coordY + 1, coordZ, chunk)].castsAO << 25)
+                                    + (blocks.blocks[blockAt(coordX + 1, coordY + 1, coordZ - 1, chunk)].castsAO << 24)
+                                    + (blocks.blocks[blockAt(coordX + 1, coordY, coordZ + 1, chunk)].castsAO << 23)
                                     + (0 << 22)      //4
-                                    + (blocks.blocks[blockAt(coordX + 1, coordY, coordZ - 1, index)].castsAO << 21)
-                                    + (blocks.blocks[blockAt(coordX + 1, coordY - 1, coordZ + 1, index)].castsAO << 20)
-                                    + (blocks.blocks[blockAt(coordX + 1, coordY - 1, coordZ, index)].castsAO << 19)
-                                    + (blocks.blocks[blockAt(coordX + 1, coordY - 1, coordZ - 1, index)].castsAO << 18)
-                                    + (blocks.blocks[blockAt(coordX, coordY + 1, coordZ + 1, index)].castsAO << 17)
+                                    + (blocks.blocks[blockAt(coordX + 1, coordY, coordZ - 1, chunk)].castsAO << 21)
+                                    + (blocks.blocks[blockAt(coordX + 1, coordY - 1, coordZ + 1, chunk)].castsAO << 20)
+                                    + (blocks.blocks[blockAt(coordX + 1, coordY - 1, coordZ, chunk)].castsAO << 19)
+                                    + (blocks.blocks[blockAt(coordX + 1, coordY - 1, coordZ - 1, chunk)].castsAO << 18)
+                                    + (blocks.blocks[blockAt(coordX, coordY + 1, coordZ + 1, chunk)].castsAO << 17)
                                     + (0 << 16)      //10
-                                    + (blocks.blocks[blockAt(coordX, coordY + 1, coordZ - 1, index)].castsAO << 15)
+                                    + (blocks.blocks[blockAt(coordX, coordY + 1, coordZ - 1, chunk)].castsAO << 15)
                                     + (0 << 14)
                                     + (0 << 13)
                                     + (0 << 12)
-                                    + (blocks.blocks[blockAt(coordX, coordY - 1, coordZ + 1, index)].castsAO << 11)
+                                    + (blocks.blocks[blockAt(coordX, coordY - 1, coordZ + 1, chunk)].castsAO << 11)
                                     + (0 << 10)      //15
-                                    + (blocks.blocks[blockAt(coordX, coordY - 1, coordZ - 1, index)].castsAO << 9)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY + 1, coordZ + 1, index)].castsAO << 8)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY + 1, coordZ, index)].castsAO << 7)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY + 1, coordZ - 1, index)].castsAO << 6)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY, coordZ + 1, index)].castsAO << 5)
+                                    + (blocks.blocks[blockAt(coordX, coordY - 1, coordZ - 1, chunk)].castsAO << 9)
+                                    + (blocks.blocks[blockAt(coordX - 1, coordY + 1, coordZ + 1, chunk)].castsAO << 8)
+                                    + (blocks.blocks[blockAt(coordX - 1, coordY + 1, coordZ, chunk)].castsAO << 7)
+                                    + (blocks.blocks[blockAt(coordX - 1, coordY + 1, coordZ - 1, chunk)].castsAO << 6)
+                                    + (blocks.blocks[blockAt(coordX - 1, coordY, coordZ + 1, chunk)].castsAO << 5)
                                     + (0 << 4)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY, coordZ - 1, index)].castsAO << 3)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY - 1, coordZ + 1, index)].castsAO << 2)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY - 1, coordZ, index)].castsAO << 1)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY - 1, coordZ - 1, index)].castsAO << 0);
+                                    + (blocks.blocks[blockAt(coordX - 1, coordY, coordZ - 1, chunk)].castsAO << 3)
+                                    + (blocks.blocks[blockAt(coordX - 1, coordY - 1, coordZ + 1, chunk)].castsAO << 2)
+                                    + (blocks.blocks[blockAt(coordX - 1, coordY - 1, coordZ, chunk)].castsAO << 1)
+                                    + (blocks.blocks[blockAt(coordX - 1, coordY - 1, coordZ - 1, chunk)].castsAO << 0);
 
     // the number refers to the coordinate of the vertex wrt the coordinate of the bottom left back vertex of the cube
     // these are the masks for vertexes of the cube
@@ -235,47 +219,63 @@ void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, int blockID, 
             face.at(4) = crntBlock.blockBitMap.at(j + 4) + offset;   face.at(5) = crntBlock.blockBitMap.at(j + 5) + ambientOccOfFace;
             face.at(6) = crntBlock.blockBitMap.at(j + 6) + offset;   face.at(7) = crntBlock.blockBitMap.at(j + 7) + ambientOccOfFace;
             
-            worldContainer.chunks[index].mesh.insert(worldContainer.chunks[index].mesh.end(), face.begin(), face.end());
+            chunk.mesh.insert(chunk.mesh.end(), face.begin(), face.end());
         }
     }
 }
 
-void ChunkBuilder::buildChunk(int index) {
+int ChunkBuilder::buildChunk(ChunkDataContainer &chunk) {
 
-    discardChunk = 0;
+    discardChunk = false;
+
+    // Early abort in case chunk is filled with air
+    if (chunk.isSingleBlock && chunk.theBlock == 0) {
+        chunk.unCompiledChunk = 0;
+        chunk.forUpdate = 0;
+        chunk.meshSize = 0;
+        chunk.redoRegionMesh = true;
+        return 0;
+    }
+
+    // Early abort in case of unfilled neighbouring chunks
+    for (int i : chunk.neighbouringChunkIndices) {
+        if (i == -1) {
+            chunk.unCompiledChunk = 1;
+            chunk.meshSize = 0;
+            return -1;
+        } else {
+            if (worldContainer.chunks[i].unGeneratedChunk == true) {
+                chunk.unCompiledChunk = 1;
+                chunk.meshSize = 0;
+                return -1;
+            }
+        }
+    }
 
     for (int i = 0; i < CHUNK_SIZE + 2; i++) {
         for (int j = 0; j < CHUNK_SIZE + 2; j++) {
             for (int k = 0; k < CHUNK_SIZE + 2; k++) {
                 cachedBlocks[(i * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (j * (CHUNK_SIZE + 2)) + k] = -1;
                 if (i > 0 && j > 0 && k > 0 && i < (CHUNK_SIZE + 1) && j < (CHUNK_SIZE + 1) && k < (CHUNK_SIZE + 1))
-                    cachedBlocks[(i * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (j * (CHUNK_SIZE + 2)) + k] = worldContainer.chunks[index].chunkData[((i - 1) * CHUNK_SIZE * CHUNK_SIZE) + ((j - 1) * CHUNK_SIZE) + (k - 1)];
+                    cachedBlocks[(i * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (j * (CHUNK_SIZE + 2)) + k] = chunk.blockAtCoords((i - 1), (j - 1), (k - 1));
             }
         }
     }
 
-    combineFace(0, 0, 0, worldContainer.chunks[index].chunkData[0], index);
-    combineFace(CHUNK_SIZE - 1, CHUNK_SIZE - 1, CHUNK_SIZE - 1, worldContainer.chunks[index].chunkData[(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE) - 1], index);
-    if (discardChunk == 1) {
-        worldContainer.chunks[index].unCompiledChunk = 1;
-        worldContainer.chunks[index].meshSize = 0;
-        return;
-    }
-
-    worldContainer.chunks[index].mesh.clear();
-
-    call = 0;
+    chunk.mesh.clear();
 
     for (int i = 0; i < CHUNK_SIZE; i++) {
         for (int j = 0; j < CHUNK_SIZE; j++) {
             for (int k = 0; k < CHUNK_SIZE; k++) {
-                if (worldContainer.chunks[index].chunkData[(i * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + k] > 0) {
-                    combineFace(i, j, k, worldContainer.chunks[index].chunkData[(i * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + k], index);
+                if (chunk.blockAtCoords(i, j, k) > 0) {
+                    combineFace(i, j, k, chunk);
                 }
+                // Abort mechanism in case a chunk gets unloaded mid-way
                 if (discardChunk == 1) {
-                    worldContainer.chunks[index].unCompiledChunk = 1;
-                    worldContainer.chunks[index].meshSize = 0;
-                    return;
+                    chunk.unCompiledChunk = 1;
+                    chunk.meshSize = 0;
+                    chunk.mesh.clear();
+                    return -1;
                 }
             }
         }
@@ -283,13 +283,16 @@ void ChunkBuilder::buildChunk(int index) {
     
 
     if (discardChunk == 1) {
-        worldContainer.chunks[index].unCompiledChunk = 1;
-        worldContainer.chunks[index].meshSize = 0;
-        return;
-    } else {
-        worldContainer.chunks[index].unCompiledChunk = 0;
-        worldContainer.chunks[index].forUpdate = 0;
+        chunk.unCompiledChunk = 1;
+        chunk.meshSize = 0;
+        chunk.mesh.clear();
+        return -1;
     }
-    worldContainer.chunks[index].meshSize = worldContainer.chunks[index].mesh.size();
-    worldContainer.chunks[index].redoRegionMesh = true;
+
+    chunk.unCompiledChunk = 0;
+    chunk.forUpdate = 0;
+    chunk.meshSize = chunk.mesh.size();
+    chunk.redoRegionMesh = true;
+
+    return 0;
 }

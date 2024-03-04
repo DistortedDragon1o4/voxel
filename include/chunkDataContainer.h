@@ -4,6 +4,7 @@
 #include <string>
 #include <array>
 #include <vector>
+#include <queue>
 #include <bitset>
 #include "VAO.h"
 #include <coordinateContainers.h>
@@ -21,7 +22,8 @@
 #define ALLOC_1MB_OF_VERTICES 131072
 
 struct ChunkLightContainer {
-    std::array<unsigned int, (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)> data;// = std::vector<unsigned int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2));
+    void clear() {for(unsigned int &i : data) i = 0;};
+    std::array<unsigned int, (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)> data;
 };
 
 struct ChunkDataContainer {
@@ -31,34 +33,38 @@ struct ChunkDataContainer {
     std::vector<unsigned int> mesh;
 
     ChunkLightContainer lightData;
+    // std::queue<LightUpdateInstruction> lightUpdateInstructions;
+    std::vector<LightUpdateInstruction> lightUpdateInstructions;
+    std::array<bool, CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE> chunkLightDataBFSvisited = {0};
+    bool lightVisited = false;
 
 	int meshSize = 0;
     bool redoRegionMesh = false;
 
-    int myIndex;
+    std::array<int, 27> neighbouringChunkIndices = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+
 	ChunkCoords chunkID;
 	float distance;
-    
-	bool inQueue = 0;
-    bool inBFSqueue = 0;
-
-	bool inGeneratorQueue = 0;
-    bool inGenBFSqueue = 0;
 
 	bool emptyChunk = 1;
 	bool unCompiledChunk = 1;
 	bool unGeneratedChunk = 1;
-	bool vaolck = 0;
 	bool renderlck = 0;
 	bool forUpdate = 0;
 
-    // bool lightUploaded = false;
-    // bool lightReadyToUpload = false;
+    bool uploadLightAnyway = false;
 
-    bool occlusionUnCulled = false;
+    bool inMeshingBFSqueue = false;
 
-    bool isPermeableCheckDone = 0;
-    short permeability = 0;
+    bool isSingleBlock = false;
+    short theBlock = 0;
+
+    short blockAtCoords(const BlockCoords coords);
+    short blockAtCoords(const int _x, const int _y, const int _z);
+    void setBlockAtCoords(const BlockCoords coords, const short block);
+    void setBlockAtCoords(const int _x, const int _y, const int _z, const short block);
+
+    void compressChunk();
 };
 
 struct Region {

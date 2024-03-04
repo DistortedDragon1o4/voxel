@@ -2,6 +2,7 @@
 #define CONTAINERS_CLASS_H
 
 #include <array>
+#include <functional>
 
 struct ChunkCoords {
     int x;
@@ -12,9 +13,27 @@ struct ChunkCoords {
 struct BlockCoords {
     BlockCoords(int index);
     BlockCoords(int _x, int _y, int _z);
+
     int x;
     int y;
     int z;
+};
+
+struct RGB {
+    RGB(const unsigned int colour) {r = (colour >> 16) & 0xff; g = (colour >> 8) & 0xff; b = colour & 0xff;};
+    RGB(unsigned int _r, unsigned int _g, unsigned int _b) {r = _r; g = _g; b = _b;};
+    unsigned int toInt() {return (r << 16) + (g << 8) + b;};
+
+    unsigned char r;
+    unsigned char g;
+    unsigned char b;
+};
+
+struct LightUpdateInstruction {
+    bool propagationType;   // true means propagate
+    char propagateChannel;
+    BlockCoords coords;
+    unsigned char value;
 };
 
 struct DrawCommand {

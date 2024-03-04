@@ -104,18 +104,16 @@ void Renderer::regionCompileRoutine() {
 			region.numFilledChunks = 0;
 			for (int j = 0; j < REGION_SIZE * REGION_SIZE * REGION_SIZE; j++) {
 				if (region.isChunkNull.test(j))
-					chunkVisibleArr[(64 * i) + j] = region.chunksInRegion[j]->meshSize > 0 && !region.chunksInRegion[j]->unCompiledChunk && region.chunksInRegion[j]->occlusionUnCulled && region.ready && !region.empty;
+					chunkVisibleArr[(64 * i) + j] = region.chunksInRegion[j]->meshSize > 0 && !region.chunksInRegion[j]->unCompiledChunk/* && region.chunksInRegion[j]->occlusionUnCulled*/ && region.ready && !region.empty;
 				else
 					chunkVisibleArr[(64 * i) + j] = false;
 			}
 		}
 	}
 
-	GLsync syncObj = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-
 	GLenum waitReturn = GL_UNSIGNALED;
 	while (waitReturn != GL_ALREADY_SIGNALED && waitReturn != GL_CONDITION_SATISFIED)
-	    waitReturn = glClientWaitSync(syncObj, GL_SYNC_FLUSH_COMMANDS_BIT, 1);
+	    waitReturn = glClientWaitSync(chunkVisibleArrSync, GL_SYNC_FLUSH_COMMANDS_BIT, 1);
 
 	std::memcpy(chunkViewableBuffer.persistentMappedPtr, &chunkVisibleArr, sizeof(chunkVisibleArr));
 
@@ -200,7 +198,7 @@ void Renderer::populateRegionData(Region &region, int index) {
 
 			drawCommands.drawCommands[j] = crntCommand;
 			region.regionData.chunkProperties[j].chunkID = region.chunksInRegion[j]->chunkID;
-	    	region.regionData.chunkProperties[j].index = region.chunksInRegion[j]->myIndex;
+	    	region.regionData.chunkProperties[j].index = region.chunksInRegion[j]->neighbouringChunkIndices[13];
 		}
 	}
 
@@ -226,9 +224,6 @@ void Renderer::preRenderVoxelWorld() {
 	orderingDrawCalls.Activate();
 	orderingDrawCalls.Dispatch(((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2));
 
-	glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
-	chunkVisibleArrSync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-
 	drawCallConstructor.Activate();
 	drawCallConstructor.Dispatch(((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2), ((RENDER_DISTANCE / 4) + 2));
 }
@@ -249,26 +244,25 @@ void Renderer::renderVoxelWorld() {
     voxelWorldVertexArray.bind();
     alternateCommandBuffer.bind(GL_DRAW_INDIRECT_BUFFER);
 
+	chunkViewableBuffer.bind(GL_PARAMETER_BUFFER);
 
-    GLenum waitReturn = GL_UNSIGNALED;
-	while (waitReturn != GL_ALREADY_SIGNALED && waitReturn != GL_CONDITION_SATISFIED)
-	    waitReturn = glClientWaitSync(chunkVisibleArrSync, GL_SYNC_FLUSH_COMMANDS_BIT, 1);
-
-	glDeleteSync(chunkVisibleArrSync);
-
-	std::array<unsigned int, 64 * (((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2) * ((RENDER_DISTANCE / 4) + 2))> chunkVisibleArr;
-	std::memcpy(&chunkVisibleArr, chunkViewableBuffer.persistentMappedPtr, sizeof(chunkVisibleArr));
 
 
     for (int i = 0; i < regionContainer.regions.size(); i++) {
 		Region &region = regionContainer.regions[i];
-	    if (region.ready && !region.empty && region.mesh.size() > 0 && (chunkVisibleArr[(64 * i) + 63] >> 2) > 0) {    		   		
+	    if (region.ready && !region.empty && region.mesh.size() > 0) {
+
 	    	glVertexArrayVertexBuffer(voxelWorldVertexArray.ID, 0, region.vbo.ID, 0, 2 * sizeof(unsigned int));
 
-	    	glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void*)(i * sizeof(DrawCommandContainer)), std::min((chunkVisibleArr[(64 * i) + 63] >> 2), unsigned(64)), 0);
+	    	// glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void*)(i * sizeof(DrawCommandContainer)), std::min((chunkVisibleArr[(64 * i) + 63]), unsigned(64)), 0);
+
+	    	glMultiDrawElementsIndirectCount(GL_TRIANGLES, GL_UNSIGNED_INT, (void*)(i * sizeof(DrawCommandContainer)), ((64 * i) + 63) * sizeof(int), 64, 0);
 	    }
     }
 
     voxelWorldVertexArray.unbind();
     alternateCommandBuffer.unbind(GL_DRAW_INDIRECT_BUFFER);
+    chunkViewableBuffer.unbind(GL_PARAMETER_BUFFER);
+
+    chunkVisibleArrSync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 }

@@ -1,6 +1,7 @@
 #include "../include/chunkList.h"
 #include "chunkDataContainer.h"
 #include "chunkGenerator.h"
+#include "coordinateContainers.h"
 #include "fastFloat.h"
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
@@ -125,11 +126,14 @@ RayCastReturn RayCaster::rayCastTillBlock(const glm::dvec3 ray, const glm::dvec3
             int(floor(crntRayPosInt.z)) - (CHUNK_SIZE * chunkCoords.z)
         };
 
-        if(worldContainer.chunks.at(index).chunkData.size() == CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE && worldContainer.chunks.at(index).chunkData.at((coords.at(0) * CHUNK_SIZE * CHUNK_SIZE) + (coords.at(1) * CHUNK_SIZE) + coords.at(2)) > 0) {
+        if(worldContainer.chunks.at(index).unGeneratedChunk == false && worldContainer.chunks.at(index).blockAtCoords(coords.at(0), coords.at(1), coords.at(2)) > 0) {
             casterResults.blockPos = glm::ivec3(crntRayPosInt);
             casterResults.prevBlockPos = glm::ivec3(prevRayPosInt);
             casterResults.blockPosIndex = index;
             casterResults.prevBlockPosIndex = prevIndex;
+
+            casterResults.lightVal = worldContainer.chunks[index].lightData.data[((coords.at(0) + 1) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + ((coords.at(1) + 1) * (CHUNK_SIZE + 2)) + (coords.at(2) + 1)];
+
             break;
         } else {
             casterResults.blockPos = glm::ivec3(2147483647, 2147483647, 2147483647);
@@ -150,7 +154,34 @@ void PlayerChunkInterface::breakBlock() {
     chunkCoords.z = int(floor(float(highlightCursor.crntLookingAtBlock.blockPos.z) / CHUNK_SIZE));
     BlockCoords coords(fastFloat::mod(highlightCursor.crntLookingAtBlock.blockPos.x, CHUNK_SIZE), fastFloat::mod(highlightCursor.crntLookingAtBlock.blockPos.y, CHUNK_SIZE), fastFloat::mod(highlightCursor.crntLookingAtBlock.blockPos.z, CHUNK_SIZE));
     if (highlightCursor.crntLookingAtBlock.blockPosIndex >= 0) {
-        worldContainer.chunks.at(highlightCursor.crntLookingAtBlock.blockPosIndex).chunkData.at((coords.x * CHUNK_SIZE * CHUNK_SIZE) + (coords.y * CHUNK_SIZE) + coords.z) = 0;
+        worldContainer.chunks.at(highlightCursor.crntLookingAtBlock.blockPosIndex).setBlockAtCoords(coords.x, coords.y, coords.z, 0);
+
+        RGB light(0xfcd899);
+
+        LightUpdateInstruction instruction = {
+            .propagationType = false,
+            .propagateChannel = 0,
+            .coords = coords,
+            .value = light.r
+        };
+        worldContainer.chunks[highlightCursor.crntLookingAtBlock.blockPosIndex].lightUpdateInstructions.push_back(instruction);
+
+        instruction = {
+            .propagationType = false,
+            .propagateChannel = 1,
+            .coords = coords,
+            .value = light.g
+        };
+        worldContainer.chunks[highlightCursor.crntLookingAtBlock.blockPosIndex].lightUpdateInstructions.push_back(instruction);
+
+        instruction = {
+            .propagationType = false,
+            .propagateChannel = 2,
+            .coords = coords,
+            .value = light.b
+        };
+        worldContainer.chunks[highlightCursor.crntLookingAtBlock.blockPosIndex].lightUpdateInstructions.push_back(instruction);
+
         processManager.updateChunk(chunkCoords, 1);
     }
 }
@@ -162,7 +193,34 @@ void PlayerChunkInterface::placeBlock() {
     chunkCoords.z = int(floor(float(highlightCursor.crntLookingAtBlock.prevBlockPos.z) / CHUNK_SIZE));
     BlockCoords coords(fastFloat::mod(highlightCursor.crntLookingAtBlock.prevBlockPos.x, CHUNK_SIZE), fastFloat::mod(highlightCursor.crntLookingAtBlock.prevBlockPos.y, CHUNK_SIZE), fastFloat::mod(highlightCursor.crntLookingAtBlock.prevBlockPos.z, CHUNK_SIZE));
     if (highlightCursor.crntLookingAtBlock.prevBlockPosIndex >= 0) {
-        worldContainer.chunks.at(highlightCursor.crntLookingAtBlock.prevBlockPosIndex).chunkData.at((coords.x * CHUNK_SIZE * CHUNK_SIZE) + (coords.y * CHUNK_SIZE) + coords.z) = currentBlock;
+        worldContainer.chunks.at(highlightCursor.crntLookingAtBlock.prevBlockPosIndex).setBlockAtCoords(coords.x, coords.y, coords.z, 4);
+
+        RGB light(0xfcd899);
+
+        LightUpdateInstruction instruction = {
+            .propagationType = true,
+            .propagateChannel = 0,
+            .coords = coords,
+            .value = light.r
+        };
+        worldContainer.chunks[highlightCursor.crntLookingAtBlock.prevBlockPosIndex].lightUpdateInstructions.push_back(instruction);
+
+        instruction = {
+            .propagationType = true,
+            .propagateChannel = 1,
+            .coords = coords,
+            .value = light.g
+        };
+        worldContainer.chunks[highlightCursor.crntLookingAtBlock.prevBlockPosIndex].lightUpdateInstructions.push_back(instruction);
+
+        instruction = {
+            .propagationType = true,
+            .propagateChannel = 2,
+            .coords = coords,
+            .value = light.b
+        };
+        worldContainer.chunks[highlightCursor.crntLookingAtBlock.prevBlockPosIndex].lightUpdateInstructions.push_back(instruction);
+
         processManager.updateChunk(chunkCoords, 1);
     }
 }

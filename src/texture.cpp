@@ -59,7 +59,7 @@ TextureArray::TextureArray(int slot, std::string directory, int start, int stop,
 	int widthImg, heightImg, numColCh;
 	stbi_set_flip_vertically_on_load(true);
 
-	for (int i = start; i < stop; i++) {
+	for (int i = start; i <= stop; i++) {
 		std::ustring data = stbi_load((path + assets + directory + std::to_string(i) + ".png").c_str(), &widthImg, &heightImg, &numColCh, 4);
 		
 		if(stbi_failure_reason())

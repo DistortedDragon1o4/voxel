@@ -20,10 +20,7 @@ VoxelGame::VoxelGame(const int width, const int height, const glm::dvec3 positio
 	worldContainer(camera),
 	rayCaster(worldContainer),
 	highlightCursor(rayCaster, camera, dir),
-	permeability(worldContainer, blocks),
-	queueGenerator(worldContainer, permeability),
-	genQueueGenerator(worldContainer),
-	processManager(worldContainer, blocks, permeability, queueGenerator, genQueueGenerator, regionContainer, camera),
+	processManager(worldContainer, blocks, regionContainer, camera),
 	interface(worldContainer, processManager, highlightCursor),
 	renderer(voxelShader, voxelBlockTextureArray, voxelBlockTextureSampler, camera, worldContainer, regionContainer, processManager.lighting, blocks, dir) {
 		voxelBlockTextureArray.TexUnit(voxelShader, "array", 0);
@@ -35,14 +32,11 @@ VoxelGame::~VoxelGame() {
 	voxelBlockTextureArray.Delete();
 }
 
-ChunkProcessManager::ChunkProcessManager(WorldContainer &worldContainer, BlockDefs &blocks, ChunkPermeability &permeability, ChunkMeshingQueueGenerator &queueGenerator, ChunkGeneratingQueueGenerator &genQueueGenerator, RegionContainer &regionContainer, Camera &camera) :
+ChunkProcessManager::ChunkProcessManager(WorldContainer &worldContainer, BlockDefs &blocks, RegionContainer &regionContainer, Camera &camera) :
 	worldContainer(worldContainer),
 	blocks(blocks),
 	builder(worldContainer, blocks),
-	lighting(worldContainer),
-	permeability(permeability),
-	queueGenerator(queueGenerator),
-	genQueueGenerator(genQueueGenerator),
+	lighting(worldContainer, blocks),
 	regionContainer(regionContainer),
 	camera(camera) {}
 
@@ -56,13 +50,13 @@ bool WorldContainer::isEdgeChunk(int coordX, int coordY, int coordZ) {
 
 void ChunkProcessManager::calculateLoadedChunks() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    while (run == 1) {
-        for (int i = 0; i < (RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE); i++) {
-            // float distance = sqrt(pow((worldContainer.chunks[i].chunkID[0] * CHUNK_SIZE) - camPosX + (CHUNK_SIZE / 2), 2) + pow((worldContainer.chunks[i].chunkID[1] * CHUNK_SIZE) - camPosY + (CHUNK_SIZE / 2), 2) + pow((worldContainer.chunks[i].chunkID[2] * CHUNK_SIZE) - camPosZ + (CHUNK_SIZE / 2), 2));
-            float distance = abs((worldContainer.chunks[i].chunkID.x * CHUNK_SIZE) - camera.Position.x + (CHUNK_SIZE / 2)) + abs(((worldContainer.chunks[i].chunkID.y * CHUNK_SIZE) - camera.Position.y + (CHUNK_SIZE / 2))) + abs((worldContainer.chunks[i].chunkID.z * CHUNK_SIZE) - camera.Position.z + (CHUNK_SIZE / 2));
-            worldContainer.chunks[i].distance = distance;
-        }
-    }
+    // while (run == 1) {
+    //     for (int i = 0; i < (RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE); i++) {
+    //         // float distance = sqrt(pow((worldContainer.chunks[i].chunkID[0] * CHUNK_SIZE) - camPosX + (CHUNK_SIZE / 2), 2) + pow((worldContainer.chunks[i].chunkID[1] * CHUNK_SIZE) - camPosY + (CHUNK_SIZE / 2), 2) + pow((worldContainer.chunks[i].chunkID[2] * CHUNK_SIZE) - camPosZ + (CHUNK_SIZE / 2), 2));
+    //         float distance = std::max(std::max(abs((worldContainer.chunks[i].chunkID.x * CHUNK_SIZE) - camera.Position.x + (CHUNK_SIZE / 2)), abs(((worldContainer.chunks[i].chunkID.y * CHUNK_SIZE) - camera.Position.y + (CHUNK_SIZE / 2)))), abs((worldContainer.chunks[i].chunkID.z * CHUNK_SIZE) - camera.Position.z + (CHUNK_SIZE / 2)));
+    //         worldContainer.chunks[i].distance = distance;
+    //     }
+    // }
 }
 
 void ChunkProcessManager::chunkPopulator() {
@@ -88,15 +82,37 @@ void ChunkProcessManager::chunkPopulator() {
             for (int i = 0; i < (RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE); i++) {
             	ChunkDataContainer &chunk = worldContainer.chunks[i];
 
+                // Filling up the data of the chunk
+
                 chunk.chunkID.x = loadedChunkCoord[i][0];
                 chunk.chunkID.y = loadedChunkCoord[i][1];
                 chunk.chunkID.z = loadedChunkCoord[i][2];
+
                 worldContainer.coordToIndexMap[worldContainer.coordsToKey(chunk.chunkID)] = i;
-                chunk.myIndex = i;
+
                 chunk.emptyChunk = 0;
                 chunk.unGeneratedChunk = 1;
                 chunk.unCompiledChunk = 1;
                 chunk.renderlck = 1;
+
+                // Filling up neighbouring chunk indices
+
+                for (int j = 0; j < 27; j++) {
+                    int z = j % 3;
+                    int y = (j / 3) % 3;
+                    int x = j / 9;
+
+                    int crntNeighbour = worldContainer.getIndex(chunk.chunkID.x + x - 1, chunk.chunkID.y + y - 1, chunk.chunkID.z + z - 1);
+                    if (crntNeighbour != -1) {
+                        chunk.neighbouringChunkIndices[j] = crntNeighbour;
+
+                        worldContainer.chunks[crntNeighbour].neighbouringChunkIndices[26 - j] = i;
+                    } else {
+                        chunk.neighbouringChunkIndices[j] = -1;
+                    }
+                }
+
+                // Handing the chunk over to a region for rendering
 
                 ChunkCoords crntRegionID;
                 crntRegionID.x = floor(float(chunk.chunkID.x) / float(REGION_SIZE));
@@ -124,12 +140,15 @@ void ChunkProcessManager::chunkPopulator() {
         } else {
             for (int i = 0; i < (RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE); i++) {
             	ChunkDataContainer &chunk = worldContainer.chunks[i];
+
+                // Bad name, it's basically the coords of the chunk w.r.t the (bottom, rear, left)most chunk
                 std::array<int, 3> axisDistances {
                     chunk.chunkID.x - cameraChunk.x,
                     chunk.chunkID.y - cameraChunk.y,
                     chunk.chunkID.z - cameraChunk.z,
                 };
 
+                // Finding the current region it is in
                 ChunkCoords crntRegionID;
 				crntRegionID.x = floor(float(chunk.chunkID.x) / float(REGION_SIZE));
 				crntRegionID.y = floor(float(chunk.chunkID.y) / float(REGION_SIZE));
@@ -139,32 +158,40 @@ void ChunkProcessManager::chunkPopulator() {
 
 				int index = regionContainer.getIndex(crntRegionID);
 
+                // Checking if the current chunk is outside the renderred area and needs to be re-allocated
                 ChunkCoords newChunkID;
                 bool x = false;
-                if (!(axisDistances.at(0) < RENDER_DISTANCE && axisDistances.at(0) >= 0)) {
-                    int m = fastFloat::mod(axisDistances.at(0), RENDER_DISTANCE);
+                if (!(axisDistances[0] < RENDER_DISTANCE && axisDistances[0] >= 0)) {
+                    int m = fastFloat::mod(axisDistances[0], RENDER_DISTANCE);
                     newChunkID.x = cameraChunk.x + m;
                     x = true;
                 } else {
-                    newChunkID.x = chunk.chunkID.x;
+                	newChunkID.x = chunk.chunkID.x;
                 }
-                if (!(axisDistances.at(1) < RENDER_DISTANCE && axisDistances.at(1) >= 0)) {
-                    int m = fastFloat::mod(axisDistances.at(1), RENDER_DISTANCE);
+
+                if (!(axisDistances[1] < RENDER_DISTANCE && axisDistances[1] >= 0)) {
+                    int m = fastFloat::mod(axisDistances[1], RENDER_DISTANCE);
                     newChunkID.y = cameraChunk.y + m;
                     x = true;
                 } else {
-                    newChunkID.y = chunk.chunkID.y;
+                	newChunkID.y = chunk.chunkID.y;
                 }
-                if (!(axisDistances.at(2) < RENDER_DISTANCE && axisDistances.at(2) >= 0)) {
-                    int m = fastFloat::mod(axisDistances.at(2), RENDER_DISTANCE);
+
+                if (!(axisDistances[2] < RENDER_DISTANCE && axisDistances[2] >= 0)) {
+                    int m = fastFloat::mod(axisDistances[2], RENDER_DISTANCE);
                     newChunkID.z = cameraChunk.z + m;
                     x = true;
                 } else {
-                    newChunkID.z = chunk.chunkID.z;
+                	newChunkID.z = chunk.chunkID.z;
                 }
+
+                // Re-allocating the chunk
                 if (x) {
+
+                    // Yeeting it from the hashmap
                     worldContainer.coordToIndexMap.erase(worldContainer.coordsToKey(chunk.chunkID));
 
+                    // Yeeting it from the region it was contained in
                     if (index != -1) {
                     	regionContainer.regions[index].isChunkNull[chunkIndex] = false;
                     	if (regionContainer.regions[index].isChunkNull == std::bitset<64>(0)) {
@@ -173,27 +200,53 @@ void ChunkProcessManager::chunkPopulator() {
                     	}
                     }
 
+                    worldContainer.coordToIndexMap[worldContainer.coordsToKey(newChunkID)] = i;
+
+                    // Yeeting and re-filling its neighbouring chunk indices
+                    for (int j = 0; j < 27; j++) {
+                        int z = j % 3;
+                        int y = (j / 3) % 3;
+                        int x = j / 9;
+
+                        int prevNeighbour = worldContainer.getIndex(chunk.chunkID.x + x - 1, chunk.chunkID.y + y - 1, chunk.chunkID.z + z - 1);
+                        if (prevNeighbour != -1) {
+                            worldContainer.chunks[prevNeighbour].neighbouringChunkIndices[26 - j] = -1;
+                        }
+
+                        int newNeighbour = worldContainer.getIndex(newChunkID.x + x - 1, newChunkID.y + y - 1, newChunkID.z + z - 1);
+                        if (newNeighbour != -1) {
+                            chunk.neighbouringChunkIndices[j] = newNeighbour;
+
+                            worldContainer.chunks[newNeighbour].neighbouringChunkIndices[26 - j] = i;
+                        } else {
+                            chunk.neighbouringChunkIndices[j] = -1;
+                        }
+                    }
+
+                    // Giving it new data
                     chunk.chunkID = newChunkID;
 
-                    worldContainer.coordToIndexMap[worldContainer.coordsToKey(chunk.chunkID)] = i;
-
                     chunk.unGeneratedChunk = 1;
-                    
                     chunk.unCompiledChunk = 1;
                     worldContainer.chunks[i].meshSize = 0;
                     chunk.chunkData.clear();
+                    chunk.lightData.clear();
+                    chunk.lightUpdateInstructions.empty();
+
                     chunk.renderlck = 1;
                     chunk.emptyChunk = 0;
-                    chunk.inQueue = 0;
-                    chunk.isPermeableCheckDone = false;
-                    chunk.occlusionUnCulled = false;
                     chunk.redoRegionMesh = false;
+
+                    chunk.isSingleBlock = false;
+                    chunk.theBlock = 0;
 
                     crntRegionID.x = floor(float(chunk.chunkID.x) / float(REGION_SIZE));
 					crntRegionID.y = floor(float(chunk.chunkID.y) / float(REGION_SIZE));
 					crntRegionID.z = floor(float(chunk.chunkID.z) / float(REGION_SIZE));
 
 					chunkIndex = (fastFloat::mod(chunk.chunkID.x, REGION_SIZE) * REGION_SIZE * REGION_SIZE) + (fastFloat::mod(chunk.chunkID.y, REGION_SIZE) * REGION_SIZE) + fastFloat::mod(chunk.chunkID.z, REGION_SIZE);
+
+					// Handing the chunk over to a region for rendering
 
 					index = regionContainer.getIndex(crntRegionID);
 
@@ -221,62 +274,54 @@ void ChunkProcessManager::chunkPopulator() {
 
 
         // const auto start = std::chrono::high_resolution_clock::now();
-        genQueueGenerator.doBFS(cameraChunk);
-        queueGenerator.doBFS(cameraChunk);
-
-        for (int i = 0; i < (RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE); i++) {
-            worldContainer.chunks.at(i).inBFSqueue = 0;
-            worldContainer.chunks.at(i).occlusionUnCulled = queueGenerator.localOcclusionUnCulled.at(i);
-            queueGenerator.localOcclusionUnCulled.at(i) = false;
+        if (cameraChunk.x != prevCameraChunk.x || cameraChunk.y != prevCameraChunk.y || cameraChunk.z != prevCameraChunk.z) {
+            for (ChunkDataContainer &chunk : worldContainer.chunks) {
+                // float distance = sqrt(pow((worldContainer.chunks[i].chunkID[0] * CHUNK_SIZE) - camPosX + (CHUNK_SIZE / 2), 2) + pow((worldContainer.chunks[i].chunkID[1] * CHUNK_SIZE) - camPosY + (CHUNK_SIZE / 2), 2) + pow((worldContainer.chunks[i].chunkID[2] * CHUNK_SIZE) - camPosZ + (CHUNK_SIZE / 2), 2));
+                float distance = std::max(std::max(abs((chunk.chunkID.x * CHUNK_SIZE) - camera.Position.x + (CHUNK_SIZE / 2)), abs(((chunk.chunkID.y * CHUNK_SIZE) - camera.Position.y + (CHUNK_SIZE / 2)))), abs((chunk.chunkID.z * CHUNK_SIZE) - camera.Position.z + (CHUNK_SIZE / 2)));
+                chunk.distance = distance;
+            }
         }
+
+        prevCameraChunk = cameraChunk;
         // const auto end = std::chrono::high_resolution_clock::now();
  
         // const std::chrono::duration<double> diff = end - start;
         // std::cout << "BFS search: " << diff << "\n";
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+        // std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
 }
 
 void ChunkProcessManager::buildChunks() {
     std::this_thread::sleep_for(std::chrono::seconds(5));
     while (run == 1) {
-        if (organiselck == 0) {            
-        	int index;
+    	int index = 0;
 
-            bool iLetYouRun = false;
-            
-            if (chunkUpdateQueue.size() > 0) {
-            	index = chunkUpdateQueue.front();
-                if (worldContainer.chunks.at(index).unGeneratedChunk == false)
+        bool iLetYouRun = false;
+        
+        if (chunkUpdateQueue.size() > 0) {
+        	index = chunkUpdateQueue.front();
+            if (worldContainer.chunks.at(index).unGeneratedChunk == false)
+                iLetYouRun = true;
+            chunkUpdateQueue.pop();
+        } else {
+            for (int i = 0; i < worldContainer.chunks.size(); i++) {
+                if (worldContainer.chunks[i].distance <= worldContainer.chunks[index].distance && worldContainer.chunks[i].unGeneratedChunk == 0 && worldContainer.chunks[i].unCompiledChunk == 1) {
+                    index = i;
                     iLetYouRun = true;
-                chunkUpdateQueue.pop();
-            } else if (queueGenerator.chunkMeshingQueue[queueGenerator.crntMeshingQueue].size() > 0) {
-                index = queueGenerator.chunkMeshingQueue[queueGenerator.crntMeshingQueue].front();
-                if (worldContainer.chunks.at(index).unCompiledChunk == true && worldContainer.chunks.at(index).unGeneratedChunk == false)
-                    iLetYouRun = true;
-                queueGenerator.chunkMeshingQueue[queueGenerator.crntMeshingQueue].pop();
-                worldContainer.chunks.at(index).inQueue = false;
+                }
             }
+        }
 
-            ChunkDataContainer &chunk = worldContainer.chunks[index];
-            
-            if (iLetYouRun) {
-                builder.chunkX = chunk.chunkID.x;
-                builder.chunkY = chunk.chunkID.y;
-                builder.chunkZ = chunk.chunkID.z;
-                if ((chunk.unCompiledChunk == 1 || chunk.forUpdate == 1) && chunk.unGeneratedChunk == 0) {
-                    chunk.vaolck = 1;
-                    lighting.updateLight(chunk.chunkID);
-                    // const auto start = std::chrono::high_resolution_clock::now();
+        ChunkDataContainer &chunk = worldContainer.chunks[index];
+        
+        if (iLetYouRun) {
+            if ((chunk.unCompiledChunk == 1 || chunk.forUpdate == 1) && chunk.unGeneratedChunk == 0) {
+                lighting.lightAO(chunk);
 
-                    builder.buildChunk(index);
+                int state = builder.buildChunk(chunk);
 
-	                // const auto end = std::chrono::high_resolution_clock::now();
-	 
-	                // const std::chrono::duration<double> diff = end - start;
-	                // std::cout << "Generating a chunk: " << diff << "\n";
-
+                if (state != -1) {
 	                ChunkCoords crntRegionID;
 					crntRegionID.x = floor(float(chunk.chunkID.x) / float(REGION_SIZE));
 					crntRegionID.y = floor(float(chunk.chunkID.y) / float(REGION_SIZE));
@@ -285,12 +330,7 @@ void ChunkProcessManager::buildChunks() {
 					int regionIndex = regionContainer.getIndex(crntRegionID);
 
 					regionContainer.regions.at(regionIndex).shouldCompile = true;
-
-
-                    worldContainer.chunks[index].vaolck = 0;
-                } else {
-                    worldContainer.chunks[index].vaolck = 1;
-                }
+				}
             }
         }
     }
@@ -299,50 +339,22 @@ void ChunkProcessManager::buildChunks() {
 void ChunkProcessManager::generateChunks() {
     std::this_thread::sleep_for(std::chrono::milliseconds(250));
     while (run == 1) {
-        if (organiselck == 0) {
-            int index = 0;
-            for (int i = 0; i < worldContainer.chunks.size(); i++) {
-                if (worldContainer.chunks[i].distance <= worldContainer.chunks[index].distance && worldContainer.chunks[i].unGeneratedChunk == 1) {
-                    index = i;
-                }
+        int index = 0;
+        for (int i = 0; i < worldContainer.chunks.size(); i++) {
+            if (worldContainer.chunks[i].distance <= worldContainer.chunks[index].distance && worldContainer.chunks[i].unGeneratedChunk == 1) {
+                index = i;
             }
+        }
 
-            // Code like this will come in the future
+        if (worldContainer.chunks.at(index).unGeneratedChunk == true) {
 
-			// bool iLetYouRun = false;
+            generator.initChunk(worldContainer.chunks[index].chunkData);
+            generator.generateChunk(worldContainer.chunks[index].chunkData, worldContainer.chunks[index].chunkID.x, worldContainer.chunks[index].chunkID.y, worldContainer.chunks[index].chunkID.z);
             
-            // if (chunkGeneratingQueue.size() > 0) {
-            //     index = chunkGeneratingQueue.front();
-            //     //if (worldContainer.chunks.at(index).inGeneratorQueue) {
-            //         iLetYouRun = true;
-            //     //}
-            //     chunkGeneratingQueue.pop();
-            //     worldContainer.chunks.at(index).inGeneratorQueue = 0;
-            // }
+            worldContainer.chunks[index].unGeneratedChunk = 0;
+            worldContainer.chunks[index].unCompiledChunk = 1;
 
-            // int index = 0;
-
-            // bool iLetYouRun = false;
-
-            // if (genQueueGenerator.chunkGeneratingQueue[genQueueGenerator.crntGeneratingQueue].size() > 0) {
-            // 	index = genQueueGenerator.chunkGeneratingQueue[genQueueGenerator.crntGeneratingQueue].front();
-            //     if (worldContainer.chunks.at(index).unGeneratedChunk == true)
-            //         iLetYouRun = true;
-            //     genQueueGenerator.chunkGeneratingQueue[genQueueGenerator.crntGeneratingQueue].pop();
-            //     worldContainer.chunks.at(index).inGeneratorQueue = false;
-            // }
-
-
-            //std::cout << worldContainer.chunks[index].unGeneratedChunk <<  " Gen || Index: " << index << " || X Y Z: " << worldContainer.chunks[index].chunkID[0] << " " << worldContainer.chunks[index].chunkID[1] << " " << worldContainer.chunks[index].chunkID[2] << " || Distance: " << worldContainer.chunks[index].distance << "\n";
-            if (/*iLetYouRun*/worldContainer.chunks.at(index).unGeneratedChunk == true) {
-
-                generator.initChunk(worldContainer.chunks[index].chunkData);
-                generator.generateChunk(worldContainer.chunks[index].chunkData, worldContainer.chunks[index].chunkID.x, worldContainer.chunks[index].chunkID.y, worldContainer.chunks[index].chunkID.z);
-                
-                worldContainer.chunks[index].unGeneratedChunk = 0;
-                worldContainer.chunks[index].unCompiledChunk = 1;
-
-            }
+            worldContainer.chunks[index].compressChunk();
         }
     }
 }

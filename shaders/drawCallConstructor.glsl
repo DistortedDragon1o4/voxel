@@ -2,8 +2,6 @@
 
 layout (local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
 
-int CHUNK_SIZE = 16;
-
 struct DrawCommand {
     uint count;
     uint instanceCount;
@@ -39,4 +37,6 @@ void main() {
 		alternateDrawCommandBufferData.drawCommandContainer[regionIndex].drawCommands[crntIndex].instanceCount = 1;
 		alternateDrawCommandBufferData.drawCommandContainer[regionIndex].drawCommands[crntIndex].baseInstance = (chunkIndex << 26) | (0x3ffffff & alternateDrawCommandBufferData.drawCommandContainer[regionIndex].drawCommands[crntIndex].baseInstance);
 	}
+
+	chunkViewableBufferData.data[(64 * regionIndex) + chunkIndex] = (chunkViewableBufferData.data[(64 * regionIndex) + chunkIndex]) >> 2;
 }
