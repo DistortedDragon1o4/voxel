@@ -12,7 +12,7 @@
 #include <thread>
 
 
-VoxelGame::VoxelGame(const int width, const int height, const glm::dvec3 position, const std::string dir) :
+VoxelGame::VoxelGame(int &width, int &height, const glm::dvec3 position, const std::string dir) :
 	voxelShader(dir + "/shaders/vertex.glsl", dir + "/shaders/fragment.glsl"),
 	voxelBlockTextureArray(0, "blocks/", 1, NUM_TEXTURES, dir + "/"),
 	camera(width, height, position),
@@ -20,9 +20,9 @@ VoxelGame::VoxelGame(const int width, const int height, const glm::dvec3 positio
 	worldContainer(camera),
 	rayCaster(worldContainer),
 	highlightCursor(rayCaster, camera, dir),
-	processManager(worldContainer, blocks, regionContainer, camera),
+	processManager(worldContainer, blocks, camera),
 	interface(worldContainer, processManager, highlightCursor),
-	renderer(voxelShader, voxelBlockTextureArray, voxelBlockTextureSampler, camera, worldContainer, regionContainer, processManager.lighting, blocks, dir) {
+	renderer(voxelShader, voxelBlockTextureArray, camera, worldContainer, processManager.lighting, blocks, dir) {
 		voxelBlockTextureArray.TexUnit(voxelShader, "array", 0);
 	}
 
@@ -32,12 +32,11 @@ VoxelGame::~VoxelGame() {
 	voxelBlockTextureArray.Delete();
 }
 
-ChunkProcessManager::ChunkProcessManager(WorldContainer &worldContainer, BlockDefs &blocks, RegionContainer &regionContainer, Camera &camera) :
+ChunkProcessManager::ChunkProcessManager(WorldContainer &worldContainer, BlockDefs &blocks, Camera &camera) :
 	worldContainer(worldContainer),
 	blocks(blocks),
 	builder(worldContainer, blocks),
 	lighting(worldContainer, blocks),
-	regionContainer(regionContainer),
 	camera(camera) {}
 
 
@@ -46,17 +45,6 @@ bool WorldContainer::isEdgeChunk(int coordX, int coordY, int coordZ) {
         return 1;
     }
     return 0;
-}
-
-void ChunkProcessManager::calculateLoadedChunks() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    // while (run == 1) {
-    //     for (int i = 0; i < (RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE); i++) {
-    //         // float distance = sqrt(pow((worldContainer.chunks[i].chunkID[0] * CHUNK_SIZE) - camPosX + (CHUNK_SIZE / 2), 2) + pow((worldContainer.chunks[i].chunkID[1] * CHUNK_SIZE) - camPosY + (CHUNK_SIZE / 2), 2) + pow((worldContainer.chunks[i].chunkID[2] * CHUNK_SIZE) - camPosZ + (CHUNK_SIZE / 2), 2));
-    //         float distance = std::max(std::max(abs((worldContainer.chunks[i].chunkID.x * CHUNK_SIZE) - camera.Position.x + (CHUNK_SIZE / 2)), abs(((worldContainer.chunks[i].chunkID.y * CHUNK_SIZE) - camera.Position.y + (CHUNK_SIZE / 2)))), abs((worldContainer.chunks[i].chunkID.z * CHUNK_SIZE) - camera.Position.z + (CHUNK_SIZE / 2)));
-    //         worldContainer.chunks[i].distance = distance;
-    //     }
-    // }
 }
 
 void ChunkProcessManager::chunkPopulator() {
@@ -111,30 +99,6 @@ void ChunkProcessManager::chunkPopulator() {
                         chunk.neighbouringChunkIndices[j] = -1;
                     }
                 }
-
-                // Handing the chunk over to a region for rendering
-
-                ChunkCoords crntRegionID;
-                crntRegionID.x = floor(float(chunk.chunkID.x) / float(REGION_SIZE));
-				crntRegionID.y = floor(float(chunk.chunkID.y) / float(REGION_SIZE));
-				crntRegionID.z = floor(float(chunk.chunkID.z) / float(REGION_SIZE));
-
-				int chunkIndex = (fastFloat::mod(chunk.chunkID.x, REGION_SIZE) * REGION_SIZE * REGION_SIZE) + (fastFloat::mod(chunk.chunkID.y, REGION_SIZE) * REGION_SIZE) + fastFloat::mod(chunk.chunkID.z, REGION_SIZE);
-
-				int index = regionContainer.getIndex(crntRegionID);
-
-				if (index == -1)
-					std::cout << "I am gonna cry now\n";
-
-				Region &region = regionContainer.regions.at(index);
-
-				region.regionID = crntRegionID;
-				region.chunksInRegion[chunkIndex] = &chunk;
-				region.isChunkNull[chunkIndex] = true;
-
-				regionContainer.coordToIndexMap[regionContainer.coordsToKey(region.regionID)] = index;
-
-				region.empty = false;
             }
             firstRun = 1;
         } else {
@@ -148,15 +112,6 @@ void ChunkProcessManager::chunkPopulator() {
                     chunk.chunkID.z - cameraChunk.z,
                 };
 
-                // Finding the current region it is in
-                ChunkCoords crntRegionID;
-				crntRegionID.x = floor(float(chunk.chunkID.x) / float(REGION_SIZE));
-				crntRegionID.y = floor(float(chunk.chunkID.y) / float(REGION_SIZE));
-				crntRegionID.z = floor(float(chunk.chunkID.z) / float(REGION_SIZE));
-
-				int chunkIndex = (fastFloat::mod(chunk.chunkID.x, REGION_SIZE) * REGION_SIZE * REGION_SIZE) + (fastFloat::mod(chunk.chunkID.y, REGION_SIZE) * REGION_SIZE) + fastFloat::mod(chunk.chunkID.z, REGION_SIZE);
-
-				int index = regionContainer.getIndex(crntRegionID);
 
                 // Checking if the current chunk is outside the renderred area and needs to be re-allocated
                 ChunkCoords newChunkID;
@@ -191,15 +146,6 @@ void ChunkProcessManager::chunkPopulator() {
                     // Yeeting it from the hashmap
                     worldContainer.coordToIndexMap.erase(worldContainer.coordsToKey(chunk.chunkID));
 
-                    // Yeeting it from the region it was contained in
-                    if (index != -1) {
-                    	regionContainer.regions[index].isChunkNull[chunkIndex] = false;
-                    	if (regionContainer.regions[index].isChunkNull == std::bitset<64>(0)) {
-                    		regionContainer.coordToIndexMap.erase(regionContainer.coordsToKey(crntRegionID));
-                    		regionContainer.regions[index].empty = true;
-                    	}
-                    }
-
                     worldContainer.coordToIndexMap[worldContainer.coordsToKey(newChunkID)] = i;
 
                     // Yeeting and re-filling its neighbouring chunk indices
@@ -228,45 +174,19 @@ void ChunkProcessManager::chunkPopulator() {
 
                     chunk.unGeneratedChunk = 1;
                     chunk.unCompiledChunk = 1;
-                    worldContainer.chunks[i].meshSize = 0;
+                    chunk.meshSize = 0;
                     chunk.chunkData.clear();
                     chunk.lightData.clear();
                     chunk.lightUpdateInstructions.empty();
 
-                    chunk.renderlck = 1;
                     chunk.emptyChunk = 0;
-                    chunk.redoRegionMesh = false;
+                    chunk.reUploadMesh = false;
 
                     chunk.isSingleBlock = false;
                     chunk.theBlock = 0;
-
-                    crntRegionID.x = floor(float(chunk.chunkID.x) / float(REGION_SIZE));
-					crntRegionID.y = floor(float(chunk.chunkID.y) / float(REGION_SIZE));
-					crntRegionID.z = floor(float(chunk.chunkID.z) / float(REGION_SIZE));
-
-					chunkIndex = (fastFloat::mod(chunk.chunkID.x, REGION_SIZE) * REGION_SIZE * REGION_SIZE) + (fastFloat::mod(chunk.chunkID.y, REGION_SIZE) * REGION_SIZE) + fastFloat::mod(chunk.chunkID.z, REGION_SIZE);
-
-					// Handing the chunk over to a region for rendering
-
-					index = regionContainer.getIndex(crntRegionID);
-
-					if (index == -1)
-						std::cout << "I am gonna cry now\n";
-
-					Region &region = regionContainer.regions.at(index);
-
-					region.regionID = crntRegionID;
-					region.chunksInRegion[chunkIndex] = &chunk;
-					region.isChunkNull[chunkIndex] = true;
-
-					regionContainer.coordToIndexMap[regionContainer.coordsToKey(region.regionID)] = index;
-
-					region.empty = false;
                 }
             }
         }
-        if (regionContainer.coordToIndexMap.size() > regionContainer.regions.size())
-        	std::cout << "The hashmap for the regions probably has a very bad memory leak\n";
 
         cameraChunk.x = int(floor(camera.Position.x / CHUNK_SIZE));
         cameraChunk.y = int(floor(camera.Position.y / CHUNK_SIZE));
@@ -320,17 +240,6 @@ void ChunkProcessManager::buildChunks() {
                 lighting.lightAO(chunk);
 
                 int state = builder.buildChunk(chunk);
-
-                if (state != -1) {
-	                ChunkCoords crntRegionID;
-					crntRegionID.x = floor(float(chunk.chunkID.x) / float(REGION_SIZE));
-					crntRegionID.y = floor(float(chunk.chunkID.y) / float(REGION_SIZE));
-					crntRegionID.z = floor(float(chunk.chunkID.z) / float(REGION_SIZE));
-
-					int regionIndex = regionContainer.getIndex(crntRegionID);
-
-					regionContainer.regions.at(regionIndex).shouldCompile = true;
-				}
             }
         }
     }

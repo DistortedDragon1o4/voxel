@@ -3,9 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <numbers>
 
-Camera::Camera(int width, int height, glm::dvec3 position) {
-	Camera::width = width;
-	Camera::height = height;
+Camera::Camera(int &width, int &height, glm::dvec3 position) : width(width), height(height) {
 	Position = position;
 }
 
@@ -14,9 +12,11 @@ void Camera::matrix(double FOVdeg, double nearPlane, double farPlane, Shader& sh
 	glm::dmat4 projection = glm::dmat4(1.0f);
 
 	view = glm::lookAt(glm::dvec3(0), glm::dvec3(0) + Orientation, Up);
-	projection = glm::perspective(glm::radians(FOVdeg), double(width / height), nearPlane, farPlane);
+	projection = glm::perspective(glm::radians(FOVdeg), double(width) / double(height), nearPlane, farPlane);
 
-	glUniformMatrix4fv(glGetUniformLocation(shader.ID, uniform), 1, GL_FALSE, glm::value_ptr(glm::mat4(projection * view)));
+	cameraMatrix = projection * view;
+
+	// glUniformMatrix4fv(glGetUniformLocation(shader.ID, uniform), 1, GL_FALSE, glm::value_ptr(glm::mat4(cameraMatrix)));
 }
 
 void Camera::inputs(GLFWwindow* window) {
@@ -52,7 +52,7 @@ void Camera::inputs(GLFWwindow* window) {
 
 	if (captured) {
 		if (firstClick) {
-			glfwSetCursorPos(window, (width / 2), (height / 2));
+			glfwSetCursorPos(window, (double(width) / 2), (double(height) / 2));
 			firstClick = false;
 		}
 
@@ -60,16 +60,16 @@ void Camera::inputs(GLFWwindow* window) {
 		double mouseY;
 		glfwGetCursorPos(window, &mouseX, &mouseY);
 
-		double diffX = (mouseY - (height / 2));
-		double diffY = (mouseX - (width / 2));
+		double diffX = (mouseY - (double(height) / 2));
+		double diffY = (mouseX - (double(width) / 2));
 
 		if (abs(diffX) == 0.5)
 			diffX = 0;
 		if (abs(diffY) == 0.5)
 			diffY = 0;
 
-		double rotX = sensitivity * (diffX / height);	// means rotation about X axis
-		double rotY = sensitivity * (diffY / width);	// means rotation about Y axis
+		double rotX = sensitivity * (diffX / double(height));	// means rotation about X axis
+		double rotY = sensitivity * (diffY / double(width));	// means rotation about Y axis
 
 		sphericalOrientation.x += rotY;
 		if (sphericalOrientation.x > std::numbers::pi)
@@ -87,8 +87,12 @@ void Camera::inputs(GLFWwindow* window) {
 		Orientation.y = sin(sphericalOrientation.y);
 		Orientation.z = sin(sphericalOrientation.x) * cos(sphericalOrientation.y);
 
-		if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) != GLFW_PRESS)
-			glfwSetCursorPos(window, (width / 2), (height / 2));
+		glfwSetCursorPos(window, (width / 2), (height / 2));
+
+		if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) != GLFW_PRESS) {
+			// glfwSetCursorPos(window, (width / 2), (height / 2));
+			oldPosition = Position;
+		}
 	}
 
 

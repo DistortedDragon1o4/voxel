@@ -1,29 +1,31 @@
 #version 460 core
 
-layout (location = 0) in int dataBlock1;
-layout (location = 1) in int dataBlock2;
-
-struct ChunkProperties {
-    ivec3 chunkID;
-    int index;
+struct MemRegUnit {
+	int x;
+	int y;
+	int z;
+	int memoryIndex;
+	int size;							// In bytes (size of the mesh)
 };
-
-struct RegionDataContainer {
-    ChunkProperties chunkProperties[64];
-};
-
-layout (binding = 2, std430) buffer RegionPropertiesBufferData {
- 	RegionDataContainer regionData[];
-} regionPropertiesBufferData;
 
 struct ChunkLightData {
 	int data[34 * 34 * 34];
 };
 
-layout (binding = 3, std430) buffer LightDataBuffer {
+layout (binding = 2, std430) buffer MemoryRegister {
+ 	MemRegUnit unit[];
+} memoryRegister;
+
+layout (binding = 3, std430) buffer MemoryBlock {
+	int v[];
+} memoryBlock;
+
+layout (binding = 4, std430) buffer LightDataBuffer {
  	ChunkLightData lightData[];
 } lightDataBuffer;
 
+
+out int ERROR;
 
 out vec2 texCoord;
 
@@ -142,10 +144,18 @@ vec3 vertexLight(ivec3 position, int normalIdx, int index) {
 	return (importantSurroundingLightColours[0] + importantSurroundingLightColours[1] + importantSurroundingLightColours[2] + importantSurroundingLightColours[3]) / (4.0 * 255.0);
 }
 
+uint indices[6] = {
+	0, 1, 2,
+	2, 3, 0
+};
+
 void main() {
 
-	ivec3 chunkID = regionPropertiesBufferData.regionData[gl_BaseInstance & 0x3ffffff].chunkProperties[uint(gl_BaseInstance) >> 26].chunkID;
-	int index = regionPropertiesBufferData.regionData[gl_BaseInstance & 0x3ffffff].chunkProperties[uint(gl_BaseInstance) >> 26].index;
+	int dataBlock1 = memoryBlock.v[((memoryRegister.unit[gl_BaseInstance].memoryIndex / 4) + 1) + (2 * ((4 * (gl_VertexID / 6)) + indices[gl_VertexID % 6]))];
+	int dataBlock2 = memoryBlock.v[((memoryRegister.unit[gl_BaseInstance].memoryIndex / 4) + 1) + (2 * ((4 * (gl_VertexID / 6)) + indices[gl_VertexID % 6])) + 1];
+
+	ivec3 chunkID = ivec3(memoryRegister.unit[gl_BaseInstance].x, memoryRegister.unit[gl_BaseInstance].y, memoryRegister.unit[gl_BaseInstance].z);
+	int index = gl_BaseInstance;
 
 	// Stuff left to do to fix precision issues
 
@@ -159,37 +169,39 @@ void main() {
 	camDistance = distance(vec3(mesh), camPos);
 
 	const int texMask = 0x3ff;
-	int texMap = (dataBlock2 >> 11) & texMask;
+	int texMap = (dataBlock2 >> 4) & texMask;
 	ivec2 texInt = ivec2(texMap >> 5, texMap & 0x1f);
 	texCoord = vec2(float(texInt.x / 16.0), float(texInt.y / 16.0));
 
-	blockID = int(dataBlock2 >> 21);
+	blockID = int(dataBlock2 >> 14);
 
 	const int normalMask = 0x7;
-	int normalIdx = (dataBlock2 >> 8) & normalMask;
+	int normalIdx = (dataBlock2 >> 1) & normalMask;
 	normal = normalArr[normalIdx];
 
 	vec4 ambientOccLocal;
-	ambientOccLocal.x = ambientOccMap[int((dataBlock2 >> 6) & 3)];
-	ambientOccLocal.y = ambientOccMap[int((dataBlock2 >> 4) & 3)];
-	ambientOccLocal.z = ambientOccMap[int((dataBlock2 >> 2) & 3)];
-	ambientOccLocal.w = ambientOccMap[int(dataBlock2 & 3)];
+	ambientOccLocal.x = ambientOccMap[int(memoryBlock.v[((memoryRegister.unit[gl_BaseInstance].memoryIndex / 4) + 1) + (2 * ((4 * (gl_VertexID / 6)) + 0)) + 1] & 1)];
+	ambientOccLocal.y = ambientOccMap[int(memoryBlock.v[((memoryRegister.unit[gl_BaseInstance].memoryIndex / 4) + 1) + (2 * ((4 * (gl_VertexID / 6)) + 1)) + 1] & 1)];
+	ambientOccLocal.z = ambientOccMap[int(memoryBlock.v[((memoryRegister.unit[gl_BaseInstance].memoryIndex / 4) + 1) + (2 * ((4 * (gl_VertexID / 6)) + 2)) + 1] & 1)];
+	ambientOccLocal.w = ambientOccMap[int(memoryBlock.v[((memoryRegister.unit[gl_BaseInstance].memoryIndex / 4) + 1) + (2 * ((4 * (gl_VertexID / 6)) + 3)) + 1] & 1)];
 
 	ambientOcc = ambientOccLocal;
 
-	ambientOccPos = ambientOccArr[gl_VertexID % 4];
+	ambientOccPos = ambientOccArr[indices[gl_VertexID % 6] % 4];
 
 
 	vec3 vertexCoords = vec3(coords) / 16.0;
 
 	ivec3 crntBlockCoords;
 
-	crntBlockCoords.x = ((shallReduceByOneX[((5 - normalIdx) * 4) + (gl_VertexID % 4)]) && floor(vertexCoords.x) == vertexCoords.x) ? int(floor(vertexCoords.x) - 1.0) : int(floor(vertexCoords.x));
-	crntBlockCoords.y = ((shallReduceByOneY[((5 - normalIdx) * 4) + (gl_VertexID % 4)]) && floor(vertexCoords.y) == vertexCoords.y) ? int(floor(vertexCoords.y) - 1.0) : int(floor(vertexCoords.y));
-	crntBlockCoords.z = ((shallReduceByOneZ[((5 - normalIdx) * 4) + (gl_VertexID % 4)]) && floor(vertexCoords.z) == vertexCoords.z) ? int(floor(vertexCoords.z) - 1.0) : int(floor(vertexCoords.z));
+	crntBlockCoords.x = ((shallReduceByOneX[((5 - normalIdx) * 4) + (indices[gl_VertexID % 6] % 4)]) && floor(vertexCoords.x) == vertexCoords.x) ? int(floor(vertexCoords.x) - 1.0) : int(floor(vertexCoords.x));
+	crntBlockCoords.y = ((shallReduceByOneY[((5 - normalIdx) * 4) + (indices[gl_VertexID % 6] % 4)]) && floor(vertexCoords.y) == vertexCoords.y) ? int(floor(vertexCoords.y) - 1.0) : int(floor(vertexCoords.y));
+	crntBlockCoords.z = ((shallReduceByOneZ[((5 - normalIdx) * 4) + (indices[gl_VertexID % 6] % 4)]) && floor(vertexCoords.z) == vertexCoords.z) ? int(floor(vertexCoords.z) - 1.0) : int(floor(vertexCoords.z));
 
 	vertexLightValues[0] = vertexLight(faceVertexCoords[(4 * normalIdx) + 0] + crntBlockCoords, normalIdx, index);
 	vertexLightValues[1] = vertexLight(faceVertexCoords[(4 * normalIdx) + 1] + crntBlockCoords, normalIdx, index);
 	vertexLightValues[2] = vertexLight(faceVertexCoords[(4 * normalIdx) + 2] + crntBlockCoords, normalIdx, index);
 	vertexLightValues[3] = vertexLight(faceVertexCoords[(4 * normalIdx) + 3] + crntBlockCoords, normalIdx, index);
+
+	ERROR = memoryBlock.v[memoryRegister.unit[gl_BaseInstance].memoryIndex / 4];
 }

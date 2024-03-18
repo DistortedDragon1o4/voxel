@@ -171,22 +171,6 @@ int main(int argc, char** argv) {
 	boxDraw.list.push_back(box2);
 	boxDraw.generateMesh();
 
-	std::vector<int> vertices{0, 1, 2};
-	std::vector<unsigned int> ebo{0, 1, 2};
-
-	VAO VAO1;
-	VAO1.Bind();
-
-	VBO VBO1;
-	EBO EBO1;
-
-	VBO1.Gen(vertices);
-	EBO1.Gen(ebo);
-
-	VAO1.LinkAttribPointer(VBO1, 0, 1, GL_SHORT, 1 * sizeof(int), (void *)0);
-
-	VAO1.Unbind();
-
 	double prevTime = glfwGetTime();
 	double chunkTimer = glfwGetTime();
 
@@ -198,16 +182,10 @@ int main(int argc, char** argv) {
 
 	VoxelGame voxel(width, height, glm::dvec3(7.0, 7.0, 7.0), dir);
 
-	voxel.renderer.screenHeight = height;
-	voxel.renderer.screenDiag = sqrt((height * height) + (width * width));
-	voxel.renderer.FOV = glm::radians(90.0);
-
-
 	voxel.camera.breakBlock = std::bind(&PlayerChunkInterface::breakBlock, &voxel.interface);
 	voxel.camera.placeBlock = std::bind(&PlayerChunkInterface::placeBlock, &voxel.interface);
 	voxel.camera.currentBlockPtr = &voxel.interface.currentBlock;
 
-	std::thread calcLoaded(&ChunkProcessManager::calculateLoadedChunks, &voxel.processManager);
 	std::thread assigner(&ChunkProcessManager::chunkPopulator, &voxel.processManager);
 	std::thread generator(&ChunkProcessManager::generateChunks, &voxel.processManager);
 	std::thread builder(&ChunkProcessManager::buildChunks, &voxel.processManager);
@@ -228,9 +206,6 @@ int main(int argc, char** argv) {
 	while (!glfwWindowShouldClose(window)) {
 		glfwGetFramebufferSize(window, &width, &height);
 
-		voxel.renderer.screenHeight = height;
-		voxel.renderer.screenDiag = sqrt((height * height) + (width * width));
-
 		box.windowHeight = height;
 		box.windowWidth = width;
 		box2.windowHeight = height;
@@ -239,9 +214,6 @@ int main(int argc, char** argv) {
 		box.genBox();
 		box2.genBox();
 		boxDraw.generateMesh();
-
-		voxel.camera.width = width;
-		voxel.camera.height = height;
 
 		glViewport(0, 0, width, height);
 
@@ -267,7 +239,6 @@ int main(int argc, char** argv) {
 
 
 		voxel.camera.mouseInput(window);
-
 		voxel.camera.inputs(window);
 
 		voxel.renderer.regionCompileRoutine();
@@ -345,7 +316,6 @@ int main(int argc, char** argv) {
 
 	voxel.processManager.run = 0;
 
-	calcLoaded.join();
 	assigner.join();
 	generator.join();
 	builder.join();

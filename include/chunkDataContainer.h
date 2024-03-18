@@ -9,14 +9,11 @@
 #include "VAO.h"
 #include <coordinateContainers.h>
 
-
 #define NUM_BLOCKS 6
 #define NUM_TEXTURES 8
 #define RENDER_DISTANCE 12
 #define CHUNK_SIZE 32
 
-// Please DO NOT change this
-#define REGION_SIZE 4
 #define BUFFER_OFFSET(offset) (static_cast<char*>(0) + (offset))
 
 #define ALLOC_1MB_OF_VERTICES 131072
@@ -36,10 +33,11 @@ struct ChunkDataContainer {
     // std::queue<LightUpdateInstruction> lightUpdateInstructions;
     std::vector<LightUpdateInstruction> lightUpdateInstructions;
     std::array<bool, CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE> chunkLightDataBFSvisited = {0};
+    bool uploadLightAnyway = false;
     bool lightVisited = false;
 
 	int meshSize = 0;
-    bool redoRegionMesh = false;
+    bool reUploadMesh = false;
 
     std::array<int, 27> neighbouringChunkIndices = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 
@@ -52,7 +50,7 @@ struct ChunkDataContainer {
 	bool renderlck = 0;
 	bool forUpdate = 0;
 
-    bool uploadLightAnyway = false;
+    bool meshLivesOnGPU = false;
 
     bool inMeshingBFSqueue = false;
 
@@ -67,46 +65,6 @@ struct ChunkDataContainer {
     void compressChunk();
 };
 
-struct Region {
-    ~Region() {
-        vbo.del();
-    }
-
-    // This is a container for 4x4x4 chunks
-    std::array<ChunkDataContainer*, REGION_SIZE * REGION_SIZE * REGION_SIZE> chunksInRegion;
-
-    // Does literally the opposite of its name    
-    std::bitset<REGION_SIZE * REGION_SIZE * REGION_SIZE> isChunkNull = 0;
-
-    ChunkCoords regionID;
-
-    std::vector<unsigned int> mesh;
-
-    int numFilledVertices = 0;
-
-    std::array<int, REGION_SIZE * REGION_SIZE * REGION_SIZE> count = {};
-    std::array<int, REGION_SIZE * REGION_SIZE * REGION_SIZE> baseVertex = {};
-
-    unsigned int numFilledChunks = 0;
-
-    // very misleading name, but ok
-    // RegionProperties regionProperties;
-
-    RegionDataContainer regionData;
-
-    newVBO vbo;
-
-    void compileMesh();
-    void uploadRegion();
-
-    bool shouldCompile = false;
-    bool ready = false;
-    bool readyToUpload = false;
-
-    bool empty = true;
-
-};
-
 
 struct BlockTemplate {
     // vertex format:
@@ -114,36 +72,36 @@ struct BlockTemplate {
     // | 10 bits for texture index | 5 bits for texture U | 5 bits for texture V | 3 bits for normal | 8 bit for ambient occlusion |
 
     const std::vector<unsigned int> blockBitMap {
-        //|       X||       Y||       Z|         |  U||  V||N|     AO|
-        0b000001000000000100000000010000,      0b100001000010100000000,
-        0b000000000000000100000000010000,      0b000001000010100000000,
-        0b000000000000000000000000010000,      0b000000000010100000000,
-        0b000001000000000000000000010000,      0b100000000010100000000,
+        //|       X||       Y||       Z|         |  U||  V||N|AO|
+        0b000001000000000100000000010000,      0b10000100001010,
+        0b000000000000000100000000010000,      0b00000100001010,
+        0b000000000000000000000000010000,      0b00000000001010,
+        0b000001000000000000000000010000,      0b10000000001010,
         //|       X||       Y||       Z|
-        0b000000000000000100000000000000,      0b100001000010000000000,
-        0b000001000000000100000000000000,      0b000001000010000000000,
-        0b000001000000000000000000000000,      0b000000000010000000000,
-        0b000000000000000000000000000000,      0b100000000010000000000,
+        0b000000000000000100000000000000,      0b10000100001000,
+        0b000001000000000100000000000000,      0b00000100001000,
+        0b000001000000000000000000000000,      0b00000000001000,
+        0b000000000000000000000000000000,      0b10000000001000,
         //|       X||       Y||       Z|
-        0b000001000000000100000000000000,      0b100001000001100000000,
-        0b000001000000000100000000010000,      0b000001000001100000000,
-        0b000001000000000000000000010000,      0b000000000001100000000,
-        0b000001000000000000000000000000,      0b100000000001100000000,
+        0b000001000000000100000000000000,      0b10000100000110,
+        0b000001000000000100000000010000,      0b00000100000110,
+        0b000001000000000000000000010000,      0b00000000000110,
+        0b000001000000000000000000000000,      0b10000000000110,
         //|       X||       Y||       Z|
-        0b000000000000000100000000010000,      0b100001000001000000000,
-        0b000000000000000100000000000000,      0b000001000001000000000,
-        0b000000000000000000000000000000,      0b000000000001000000000,
-        0b000000000000000000000000010000,      0b100000000001000000000,
+        0b000000000000000100000000010000,      0b10000100000100,
+        0b000000000000000100000000000000,      0b00000100000100,
+        0b000000000000000000000000000000,      0b00000000000100,
+        0b000000000000000000000000010000,      0b10000000000100,
         //|       X||       Y||       Z|
-        0b000001000000000100000000000000,      0b100001000000100000000,
-        0b000000000000000100000000000000,      0b000001000000100000000,
-        0b000000000000000100000000010000,      0b000000000000100000000,
-        0b000001000000000100000000010000,      0b100000000000100000000,
+        0b000001000000000100000000000000,      0b10000100000010,
+        0b000000000000000100000000000000,      0b00000100000010,
+        0b000000000000000100000000010000,      0b00000000000010,
+        0b000001000000000100000000010000,      0b10000000000010,
         //|       X||       Y||       Z|
-        0b000001000000000000000000010000,      0b100001000000000000000,
-        0b000000000000000000000000010000,      0b000001000000000000000,
-        0b000000000000000000000000000000,      0b000000000000000000000,
-        0b000001000000000000000000000000,      0b100000000000000000000
+        0b000001000000000000000000010000,      0b10000100000000,
+        0b000000000000000000000000010000,      0b00000100000000,
+        0b000000000000000000000000000000,      0b00000000000000,
+        0b000001000000000000000000000000,      0b10000000000000
     };
 
     const std::vector<int> faceType {

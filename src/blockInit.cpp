@@ -23,7 +23,7 @@ void BlockDefs::parseModel(std::vector<unsigned int> &model, std::vector<unsigne
     for (int i = 0; i < model.size() / 9; i++) {
         int j = 9 * i;
         unsigned int dataBlock1 = (model[j + 2] << 20) + (model[j + 3] << 10) + model[j + 4];
-        unsigned int dataBlock2 = (model[j + 8] << 21) + (model[j + 0] << 16) + (model[j + 1] << 11) + (model[j + 5] << 8);
+        unsigned int dataBlock2 = (model[j + 8] << 14) + (model[j + 0] << 9) + (model[j + 1] << 4) + (model[j + 5] << 1);
         blockBitMap.push_back(dataBlock1);
         blockBitMap.push_back(dataBlock2);
 

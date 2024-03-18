@@ -9,7 +9,7 @@ ChunkLighting::ChunkLighting(WorldContainer &worldContainer, BlockDefs &blocks):
         lightDataBuffer.create();
         lightDataBuffer.allocate(RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE * sizeof(ChunkLightContainer), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
         lightDataBuffer.map(GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
-        lightDataBuffer.bindBufferBase(GL_SHADER_STORAGE_BUFFER, 3);
+        lightDataBuffer.bindBufferBase(GL_SHADER_STORAGE_BUFFER, 4);
     }
 
 void ChunkLighting::updateLight(ChunkDataContainer &chunk) {
@@ -36,7 +36,7 @@ void ChunkLighting::updateLight(ChunkDataContainer &chunk) {
 
     if (lightDataWasModified || chunk.uploadLightAnyway) {
         int index = chunk.neighbouringChunkIndices[13];
-        memcpy((char*)lightDataBuffer.persistentMappedPtr + (index * sizeof(int) * chunk.lightData.data.size()), &chunk.lightData.data, sizeof(ChunkLightContainer));
+        memcpy((char*)lightDataBuffer.persistentMappedPtr + (index * sizeof(unsigned int) * chunk.lightData.data.size()), &chunk.lightData.data[0], chunk.lightData.data.size() * sizeof(unsigned int));
         chunk.uploadLightAnyway = false;
     }
 }

@@ -36,7 +36,7 @@ int WorldContainer::getIndex(const int chunkCoordX, const int chunkCoordY, const
     return index;
 }
 
-int ChunkBuilder::blockAtNeighbouringChunk(int coordX, int coordY, int coordZ, ChunkDataContainer &crntChunk) {
+int ChunkBuilder::blockAt(int coordX, int coordY, int coordZ, ChunkDataContainer &crntChunk) {
     int a = 1;
     int b = 1;
     int c = 1;
@@ -66,24 +66,6 @@ int ChunkBuilder::blockAtNeighbouringChunk(int coordX, int coordY, int coordZ, C
     }
 }
 
-int ChunkBuilder::cachedBlockAt(int coordX, int coordY, int coordZ) {
-    return cachedBlocks[(coordX * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (coordY * (CHUNK_SIZE + 2)) + coordZ];
-}
-
-int ChunkBuilder::blockAt(int coordX, int coordY, int coordZ, ChunkDataContainer &chunk) {
-    int block = cachedBlockAt(coordX + 1, coordY + 1, coordZ + 1);
-    if (block == -1) {
-        block = blockAtNeighbouringChunk(coordX, coordY, coordZ, chunk);
-        cachedBlocks[((coordX + 1) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + ((coordY + 1) * (CHUNK_SIZE + 2)) + (coordZ + 1)] = block;
-    }
-    return block;
-}
-
-// bool ChunkList::atBit(const int value, const unsigned int position) {
-//     // position equals zero means rightmost digit
-//     return ((value & (1 << position)) >> position);
-// }
-
 int ChunkBuilder::ambientOccIndex(int coordinates) {
     int coordMask = 0b1111111111;
     int Z = ((coordinates & coordMask) + 8) >> 4;
@@ -111,99 +93,81 @@ void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, ChunkDataCont
                             + ((blocks.blocks[blockAt(coordX, coordY + 1, coordZ, chunk)].isSolid | (blockAt(coordX, coordY + 1, coordZ, chunk) == blockID)) << 1)
                             +  (blocks.blocks[blockAt(coordX, coordY - 1, coordZ, chunk)].isSolid | (blockAt(coordX, coordY - 1, coordZ, chunk) == blockID));
 
-    unsigned int ambientOccMap =      (blocks.blocks[blockAt(coordX + 1, coordY + 1, coordZ + 1, chunk)].castsAO << 26)
-                                    + (blocks.blocks[blockAt(coordX + 1, coordY + 1, coordZ, chunk)].castsAO << 25)
-                                    + (blocks.blocks[blockAt(coordX + 1, coordY + 1, coordZ - 1, chunk)].castsAO << 24)
-                                    + (blocks.blocks[blockAt(coordX + 1, coordY, coordZ + 1, chunk)].castsAO << 23)
+    std::array<int, 27> surroundingBlockMap = {
+        blockAt(coordX - 1, coordY - 1, coordZ - 1, chunk),
+        blockAt(coordX - 1, coordY - 1, coordZ, chunk),
+        blockAt(coordX - 1, coordY - 1, coordZ + 1, chunk),
+        blockAt(coordX - 1, coordY, coordZ - 1, chunk),
+        blockAt(coordX - 1, coordY, coordZ, chunk),
+        blockAt(coordX - 1, coordY, coordZ + 1, chunk),
+        blockAt(coordX - 1, coordY + 1, coordZ - 1, chunk),
+        blockAt(coordX - 1, coordY + 1, coordZ, chunk),
+        blockAt(coordX - 1, coordY + 1, coordZ + 1, chunk),
+
+        blockAt(coordX, coordY - 1, coordZ - 1, chunk),
+        blockAt(coordX, coordY - 1, coordZ, chunk),
+        blockAt(coordX, coordY - 1, coordZ + 1, chunk),
+        blockAt(coordX, coordY, coordZ - 1, chunk),
+        blockAt(coordX, coordY, coordZ, chunk),
+        blockAt(coordX, coordY, coordZ + 1, chunk),
+        blockAt(coordX, coordY + 1, coordZ - 1, chunk),
+        blockAt(coordX, coordY + 1, coordZ, chunk),
+        blockAt(coordX, coordY + 1, coordZ + 1, chunk),
+
+        blockAt(coordX + 1, coordY - 1, coordZ - 1, chunk),
+        blockAt(coordX + 1, coordY - 1, coordZ, chunk),
+        blockAt(coordX + 1, coordY - 1, coordZ + 1, chunk),
+        blockAt(coordX + 1, coordY, coordZ - 1, chunk),
+        blockAt(coordX + 1, coordY, coordZ, chunk),
+        blockAt(coordX + 1, coordY, coordZ + 1, chunk),
+        blockAt(coordX + 1, coordY + 1, coordZ - 1, chunk),
+        blockAt(coordX + 1, coordY + 1, coordZ, chunk),
+        blockAt(coordX + 1, coordY + 1, coordZ + 1, chunk)
+    };
+
+    unsigned int ambientOccMap =      (blocks.blocks[surroundingBlockMap[26]].castsAO << 26)
+                                    + (blocks.blocks[surroundingBlockMap[25]].castsAO << 25)
+                                    + (blocks.blocks[surroundingBlockMap[24]].castsAO << 24)
+                                    + (blocks.blocks[surroundingBlockMap[23]].castsAO << 23)
                                     + (0 << 22)      //4
-                                    + (blocks.blocks[blockAt(coordX + 1, coordY, coordZ - 1, chunk)].castsAO << 21)
-                                    + (blocks.blocks[blockAt(coordX + 1, coordY - 1, coordZ + 1, chunk)].castsAO << 20)
-                                    + (blocks.blocks[blockAt(coordX + 1, coordY - 1, coordZ, chunk)].castsAO << 19)
-                                    + (blocks.blocks[blockAt(coordX + 1, coordY - 1, coordZ - 1, chunk)].castsAO << 18)
-                                    + (blocks.blocks[blockAt(coordX, coordY + 1, coordZ + 1, chunk)].castsAO << 17)
+                                    + (blocks.blocks[surroundingBlockMap[21]].castsAO << 21)
+                                    + (blocks.blocks[surroundingBlockMap[20]].castsAO << 20)
+                                    + (blocks.blocks[surroundingBlockMap[19]].castsAO << 19)
+                                    + (blocks.blocks[surroundingBlockMap[18]].castsAO << 18)
+                                    + (blocks.blocks[surroundingBlockMap[17]].castsAO << 17)
                                     + (0 << 16)      //10
-                                    + (blocks.blocks[blockAt(coordX, coordY + 1, coordZ - 1, chunk)].castsAO << 15)
+                                    + (blocks.blocks[surroundingBlockMap[15]].castsAO << 15)
                                     + (0 << 14)
                                     + (0 << 13)
                                     + (0 << 12)
-                                    + (blocks.blocks[blockAt(coordX, coordY - 1, coordZ + 1, chunk)].castsAO << 11)
+                                    + (blocks.blocks[surroundingBlockMap[11]].castsAO << 11)
                                     + (0 << 10)      //15
-                                    + (blocks.blocks[blockAt(coordX, coordY - 1, coordZ - 1, chunk)].castsAO << 9)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY + 1, coordZ + 1, chunk)].castsAO << 8)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY + 1, coordZ, chunk)].castsAO << 7)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY + 1, coordZ - 1, chunk)].castsAO << 6)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY, coordZ + 1, chunk)].castsAO << 5)
+                                    + (blocks.blocks[surroundingBlockMap[9]].castsAO << 9)
+                                    + (blocks.blocks[surroundingBlockMap[8]].castsAO << 8)
+                                    + (blocks.blocks[surroundingBlockMap[7]].castsAO << 7)
+                                    + (blocks.blocks[surroundingBlockMap[6]].castsAO << 6)
+                                    + (blocks.blocks[surroundingBlockMap[5]].castsAO << 5)
                                     + (0 << 4)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY, coordZ - 1, chunk)].castsAO << 3)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY - 1, coordZ + 1, chunk)].castsAO << 2)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY - 1, coordZ, chunk)].castsAO << 1)
-                                    + (blocks.blocks[blockAt(coordX - 1, coordY - 1, coordZ - 1, chunk)].castsAO << 0);
+                                    + (blocks.blocks[surroundingBlockMap[3]].castsAO << 3)
+                                    + (blocks.blocks[surroundingBlockMap[2]].castsAO << 2)
+                                    + (blocks.blocks[surroundingBlockMap[1]].castsAO << 1)
+                                    + (blocks.blocks[surroundingBlockMap[0]].castsAO << 0);
 
-    // the number refers to the coordinate of the vertex wrt the coordinate of the bottom left back vertex of the cube
-    // these are the masks for vertexes of the cube
-    unsigned int vert111 = 0b110100000100000000000000000;
-    unsigned int vert110 = 0b011001000001000000000000000;
-    unsigned int vert101 = 0b000100110000000100000000000;
-    unsigned int vert100 = 0b000001011000000001000000000;
-    unsigned int vert011 = 0b000000000100000000110100000;
-    unsigned int vert010 = 0b000000000001000000011001000;
-    unsigned int vert001 = 0b000000000000000100000100110;
-    unsigned int vert000 = 0b000000000000000001000001011;
-
-    vert111 &= ambientOccMap;
-    vert110 &= ambientOccMap;
-    vert101 &= ambientOccMap;
-    vert100 &= ambientOccMap;
-    vert011 &= ambientOccMap;
-    vert010 &= ambientOccMap;
-    vert001 &= ambientOccMap;
-    vert000 &= ambientOccMap;
-
-    unsigned int faceVert111 = 0b101010;
-    unsigned int faceVert110 = 0b011010;
-    unsigned int faceVert101 = 0b101001;
-    unsigned int faceVert100 = 0b011001;
-    unsigned int faceVert011 = 0b100110;
-    unsigned int faceVert010 = 0b010110;
-    unsigned int faceVert001 = 0b010101;
-    unsigned int faceVert000 = 0b100101;
-
-    faceVert111 &= cullMap;
-    faceVert110 &= cullMap;
-    faceVert101 &= cullMap;
-    faceVert100 &= cullMap;
-    faceVert011 &= cullMap;
-    faceVert010 &= cullMap;
-    faceVert001 &= cullMap;
-    faceVert000 &= cullMap;
-
-
-    // 0 means the vertex has light, 1 means its dark
-    // unsigned int ambientOcc =     ((std::popcount(vert111) >= 2) << 7)
-    //                             + ((std::popcount(vert110) >= 2) << 6)
-    //                             + ((std::popcount(vert101) >= 2) << 5)
-    //                             + ((std::popcount(vert100) >= 2) << 4)
-    //                             + ((std::popcount(vert011) >= 2) << 3)
-    //                             + ((std::popcount(vert010) >= 2) << 2)
-    //                             + ((std::popcount(vert001) >= 2) << 1)
-    //                             + ((std::popcount(vert000) >= 2) << 0);
-
-    unsigned int ambientOcc =     (((std::popcount(vert111) >> 1) + (std::popcount(vert111) == 3) + (std::popcount(faceVert111) >= 1 && std::popcount(vert111) == 2)) << 14)
-                                + (((std::popcount(vert110) >> 1) + (std::popcount(vert110) == 3) + (std::popcount(faceVert110) >= 1 && std::popcount(vert110) == 2)) << 12)
-                                + (((std::popcount(vert101) >> 1) + (std::popcount(vert101) == 3) + (std::popcount(faceVert101) >= 1 && std::popcount(vert101) == 2)) << 10)
-                                + (((std::popcount(vert100) >> 1) + (std::popcount(vert100) == 3) + (std::popcount(faceVert100) >= 1 && std::popcount(vert100) == 2)) << 8)
-                                + (((std::popcount(vert011) >> 1) + (std::popcount(vert011) == 3) + (std::popcount(faceVert011) >= 1 && std::popcount(vert011) == 2)) << 6)
-                                + (((std::popcount(vert010) >> 1) + (std::popcount(vert010) == 3) + (std::popcount(faceVert010) >= 1 && std::popcount(vert010) == 2)) << 4)
-                                + (((std::popcount(vert001) >> 1) + (std::popcount(vert001) == 3) + (std::popcount(faceVert001) >= 1 && std::popcount(vert001) == 2)) << 2)
-                                + (((std::popcount(vert000) >> 1) + (std::popcount(vert000) == 3) + (std::popcount(faceVert000) >= 1 && std::popcount(vert000) == 2)) << 0);
-
-    unsigned int finalMap = (ambientOcc << 18/*8 bits*/) + (cullMap << 12/*6 bits*/) + (coordX << 8/*4 bits*/) + (coordY << 4/*4 bits*/) + (coordZ/*4 bits*/);
+    std::array<unsigned int, 24> faceAmbientOccMask = {
+        //  -  -  |  -  -  |  -  -  |   |  -  -  |  -  -  |  -  -  |   |  -  -  |  -  -  |  -  -  |   |  -  -  |  -  -  |  -  -  |
+        0b000000110000000100000000000, 0b000000000000000100000000110, 0b000000000000000001000000011, 0b000000011000000001000000000,
+        0b011000000001000000000000000, 0b000000000001000000011000000, 0b000000000100000000110000000, 0b110000000100000000000000000,
+        0b000000000000000000110100000, 0b000000000000000000011001000, 0b000000000000000000000001011, 0b000000000000000000000100110,
+        0b011001000000000000000000000, 0b110100000000000000000000000, 0b000100110000000000000000000, 0b000001011000000000000000000,
+        0b000000000001000000001001000, 0b001001000001000000000000000, 0b000001001000000001000000000, 0b000000000000000001000001001,
+        0b100100000100000000000000000, 0b000000000100000000100100000, 0b000000000000000100000100100, 0b000100100000000100000000000
+    };
 
     // we will be having 32x32x32 chunks, but each block will be made in an 16x16x16 grid, the mesh of the block will be predeterminned
 
     // vertex format:
     // | 10 bits for X | 10 bits for Y | 10 bits for Z |
-    // | 13 bits for texture coordinate | 4 bits for texture U | 4 bits for texture V | 3 bits for normal | 8 bit for ambient occlusion |
+    // | 20 bits for texture coordinate | 4 bits for texture U | 4 bits for texture V | 3 bits for normal | 1 bit for ambient occlusion |
 
     int offset = ((coordX << 20) + (coordY << 10) + (coordZ)) << 4;
 
@@ -212,12 +176,12 @@ void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, ChunkDataCont
     for (int i = 0; i < crntBlock.model.size() / 36; i++) {
         if (!fastFloat::atBit(cullMap, crntBlock.faceType[i])) {
             int j = 8 * i;
-            int ambientOccOfFace = (fastFloat::atBits(ambientOcc, ambientOccIndex(crntBlock.blockBitMap.at(j + 0)), 2) << 6) + (fastFloat::atBits(ambientOcc, ambientOccIndex(crntBlock.blockBitMap.at(j + 2)), 2) << 4) + (fastFloat::atBits(ambientOcc, ambientOccIndex(crntBlock.blockBitMap.at(j + 4)), 2) << 2) + fastFloat::atBits(ambientOcc, ambientOccIndex(crntBlock.blockBitMap.at(j + 6)), 2);
+            int faceType = crntBlock.faceType[i];
             std::vector<int> face = std::vector<int>(8);
-            face.at(0) = crntBlock.blockBitMap.at(j + 0) + offset;   face.at(1) = crntBlock.blockBitMap.at(j + 1) + ambientOccOfFace;
-            face.at(2) = crntBlock.blockBitMap.at(j + 2) + offset;   face.at(3) = crntBlock.blockBitMap.at(j + 3) + ambientOccOfFace;
-            face.at(4) = crntBlock.blockBitMap.at(j + 4) + offset;   face.at(5) = crntBlock.blockBitMap.at(j + 5) + ambientOccOfFace;
-            face.at(6) = crntBlock.blockBitMap.at(j + 6) + offset;   face.at(7) = crntBlock.blockBitMap.at(j + 7) + ambientOccOfFace;
+            face.at(0) = crntBlock.blockBitMap.at(j + 0) + offset;   face.at(1) = crntBlock.blockBitMap.at(j + 1) + ((faceAmbientOccMask[(4 * faceType) + 0] & ambientOccMap) > 0);
+            face.at(2) = crntBlock.blockBitMap.at(j + 2) + offset;   face.at(3) = crntBlock.blockBitMap.at(j + 3) + ((faceAmbientOccMask[(4 * faceType) + 1] & ambientOccMap) > 0);
+            face.at(4) = crntBlock.blockBitMap.at(j + 4) + offset;   face.at(5) = crntBlock.blockBitMap.at(j + 5) + ((faceAmbientOccMask[(4 * faceType) + 2] & ambientOccMap) > 0);
+            face.at(6) = crntBlock.blockBitMap.at(j + 6) + offset;   face.at(7) = crntBlock.blockBitMap.at(j + 7) + ((faceAmbientOccMask[(4 * faceType) + 3] & ambientOccMap) > 0);
             
             chunk.mesh.insert(chunk.mesh.end(), face.begin(), face.end());
         }
@@ -233,7 +197,7 @@ int ChunkBuilder::buildChunk(ChunkDataContainer &chunk) {
         chunk.unCompiledChunk = 0;
         chunk.forUpdate = 0;
         chunk.meshSize = 0;
-        chunk.redoRegionMesh = true;
+        chunk.reUploadMesh = true;
         return 0;
     }
 
@@ -248,16 +212,6 @@ int ChunkBuilder::buildChunk(ChunkDataContainer &chunk) {
                 chunk.unCompiledChunk = 1;
                 chunk.meshSize = 0;
                 return -1;
-            }
-        }
-    }
-
-    for (int i = 0; i < CHUNK_SIZE + 2; i++) {
-        for (int j = 0; j < CHUNK_SIZE + 2; j++) {
-            for (int k = 0; k < CHUNK_SIZE + 2; k++) {
-                cachedBlocks[(i * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (j * (CHUNK_SIZE + 2)) + k] = -1;
-                if (i > 0 && j > 0 && k > 0 && i < (CHUNK_SIZE + 1) && j < (CHUNK_SIZE + 1) && k < (CHUNK_SIZE + 1))
-                    cachedBlocks[(i * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (j * (CHUNK_SIZE + 2)) + k] = chunk.blockAtCoords((i - 1), (j - 1), (k - 1));
             }
         }
     }
@@ -292,7 +246,7 @@ int ChunkBuilder::buildChunk(ChunkDataContainer &chunk) {
     chunk.unCompiledChunk = 0;
     chunk.forUpdate = 0;
     chunk.meshSize = chunk.mesh.size();
-    chunk.redoRegionMesh = true;
+    chunk.reUploadMesh = true;
 
     return 0;
 }

@@ -1,6 +1,7 @@
 #ifndef CAMERA_CLASS_H
 #define CAMERA_CLASS_H
 
+#include "glm/fwd.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 
 #include "glad/glad.h"
@@ -20,23 +21,26 @@
 // this is temporary only, ps make a proper inputs file
 #include <functional>
 
-class Camera {
-public:
+struct Camera {
+    Camera( int &width, int &height, glm::dvec3 position);
+
     glm::dvec3 Position;
+    glm::dvec3 oldPosition;
     glm::dvec3 Orientation = glm::dvec3(1.0, 0.0, 0.0);
     glm::dvec3 Up = glm::dvec3(0.0, 1.0, 0.0);
     glm::dvec2 sphericalOrientation = glm::dvec2(0.0, 0.0); // spherical coordinate system and radius is 1
 
+    glm::dmat4 cameraMatrix;
+
+    int &width;
+    int &height;
+
     bool firstClick = true;
     bool captured = false;
-
-    double width;
-    double height;
 
     double speed = 0.1;
     double sensitivity = 2.0;
 
-    Camera(int width, int height, glm::dvec3 position);
 
     void matrix(double FOVdeg, double nearPlane, double farPlane, Shader& shader, const char* uniform);
     void inputs(GLFWwindow* window);

@@ -1,73 +1,49 @@
 #version 460 core
 
-layout (local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+layout (local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
 
-int CHUNK_SIZE = 32;
+float CHUNK_SIZE = 32.0;
 
-struct DrawCommand {
-    uint count;
-    uint instanceCount;
-    uint firstIndex;
-    uint baseVertex;
-    uint baseInstance;
+struct MemRegUnit {
+	int x;
+	int y;
+	int z;
+	int memoryIndex;
+	int size;							// In bytes (size of the mesh)
 };
-
-struct DrawCommandContainer {
-	DrawCommand drawCommands[64];
-};
-
-struct ChunkProperties {
-    ivec3 chunkID;
-    int index;
-};
-
-struct RegionDataContainer {
-    ChunkProperties chunkProperties[64];
-};
-
-layout (binding = 0, std430) buffer DrawCommandBufferData {
- 	DrawCommandContainer drawCommandContainer[];
-} drawCommandBufferData;
-
-layout (binding = 2, std430) buffer RegionPropertiesBufferData {
- 	RegionDataContainer regionData[];
-} regionPropertiesBufferData;
-
 layout (binding = 1, std430) buffer ChunkViewableBufferData {
+	uint drawCount;
 	uint data[];
 } chunkViewableBufferData;
 
-uniform float cosineModifiedHalfFOV;
+layout (binding = 2, std430) buffer MemoryRegister {
+ 	MemRegUnit unit[];
+} memoryRegister;
 
 uniform vec3 camPos;
-uniform vec3 camDir;
-
-uniform float frustumOffset;
+uniform mat4 cameraMatrix;
 
 uint isInsideViewFrustum(ivec3 chunkID) {
-	vec3 chunkBaseCoords = chunkID * 32.0;
-	vec3 newCamPos = vec3(camPos.x, camPos.y, camPos.z) - (frustumOffset * camDir);
+	vec3 chunkBaseCoords = chunkID * CHUNK_SIZE;
 
-	for (int i = 0; i < CHUNK_SIZE + 1; i += CHUNK_SIZE) {
-		for (int j = 0; j < CHUNK_SIZE + 1; j += CHUNK_SIZE) {
-			for (int k = 0; k < CHUNK_SIZE + 1; k += CHUNK_SIZE) {
-				vec3 crntVertCoords = vec3(chunkBaseCoords.x + i, chunkBaseCoords.y + j, chunkBaseCoords.z + k);
-				double dot = dot(normalize(crntVertCoords - newCamPos), camDir);
-				if (dot >= cosineModifiedHalfFOV)
-					return 1;
-			}
-		}
+	for (int i = 0; i < 8; i++) {
+		vec3 crntCoordsOffset = vec3(float(i >> 2), float((i >> 1) & 1), float(i & 1));
+		vec3 crntVertCoords = chunkBaseCoords + (CHUNK_SIZE * crntCoordsOffset) - camPos;
+
+		vec4 clipSpacePos = cameraMatrix * vec4(crntVertCoords, 1.0);
+
+		if ((abs(clipSpacePos.x) <= clipSpacePos.w && abs(clipSpacePos.y) <= clipSpacePos.w && abs(clipSpacePos.z) <= clipSpacePos.w) || (distance(crntVertCoords, vec3(0.0, 0.0, 0.0)) <= CHUNK_SIZE))
+			return 1;
 	}
 	return 0;
 }
 
 void main() {
-	uint regionIndex = (gl_WorkGroupID.x * gl_NumWorkGroups.y * gl_NumWorkGroups.z) + (gl_WorkGroupID.y * gl_NumWorkGroups.z) + gl_WorkGroupID.z;
-	uint chunkIndex = gl_LocalInvocationIndex;
+	uint chunkIndex = (gl_WorkGroupID.x * 8) + gl_LocalInvocationID.x;
 
-	ivec3 chunkID = regionPropertiesBufferData.regionData[regionIndex].chunkProperties[chunkIndex].chunkID;
+	ivec3 chunkID = ivec3(memoryRegister.unit[chunkIndex].x, memoryRegister.unit[chunkIndex].y, memoryRegister.unit[chunkIndex].z);
 
-	drawCommandBufferData.drawCommandContainer[regionIndex].drawCommands[chunkIndex].instanceCount = (chunkViewableBufferData.data[(64 * regionIndex) + chunkIndex] & 1) & isInsideViewFrustum(chunkID);
+	chunkViewableBufferData.data[chunkIndex] = uint(chunkViewableBufferData.data[chunkIndex] & isInsideViewFrustum(chunkID));
 
-	chunkViewableBufferData.data[(64 * regionIndex) + chunkIndex] = uint((chunkViewableBufferData.data[(64 * regionIndex) + chunkIndex] & isInsideViewFrustum(chunkID)) << 1) + chunkViewableBufferData.data[(64 * regionIndex) + chunkIndex];
+	chunkViewableBufferData.drawCount = 0;
 }

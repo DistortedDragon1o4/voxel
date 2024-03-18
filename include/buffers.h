@@ -29,62 +29,6 @@ public:
     void Delete();
 };
 
-class SSBO {
-public:
-    int totalSize;
-    GLuint ID;
-    
-    void Gen(int bindIndex, int size);
-    void Upload(std::vector<float> data, int offset, int size, int bindIndex);
-    void Upload(std::vector<int> data, int offset, int size, int bindIndex);
-    void Bind();
-    void Unbind();
-    void Delete();
-};
-
-class UBO {
-public:
-    GLuint ID;
-
-    UBO(int bindIndex);
-    ~UBO();
-    
-    void Upload(std::array<ChunkProperties, 64> &data);
-    void Bind();
-    void Unbind();
-};
-
-// New stuff
-
-struct newVBO {
-    unsigned int ID;
-
-    int numVertices;
-
-    void create();
-    void upload(std::vector<unsigned int> &vertices);
-
-    void reAlloc(int numVertices);
-    void alloc(int numVertices);
-    void subUpload(int offset, std::vector<unsigned int> &vertices);
-    void shift(unsigned int buffer, int offset, int size, int shiftBy);
-
-    void bind();
-    void unbind();
-    void del();
-};
-
-struct newIBO {
-    unsigned int ID;
-
-    void create();
-    void upload(std::vector<unsigned int> &indices);
-    void bind();
-    void unbind();
-    void del();
-};
-
-
 struct UnifiedGLBufferContainer {
     ~UnifiedGLBufferContainer() {del();};
 
@@ -96,6 +40,7 @@ struct UnifiedGLBufferContainer {
     void upload(void* data, unsigned long size, unsigned long byteIndex);
 
     void map(GLenum flags);
+    void map(unsigned long index, unsigned long _size, GLenum flags);
 
     void bind(GLenum type);
     void bindBufferBase(GLenum type, unsigned int bindIndex);

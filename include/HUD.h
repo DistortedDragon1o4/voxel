@@ -2,6 +2,7 @@
 #define HUD_CLASS_H
 
 #include <iostream>
+#include "buffers.h"
 #include "glm/glm.hpp"
 #include <vector>
 #include "VAO.h"
@@ -17,23 +18,8 @@ public:
     glm::ivec2 position;
     glm::vec3 color;
     void genBox();
-    std::vector<float> box;
-    std::vector<unsigned int> ebo;
-};
-
-class TextItem {
-public:
-    int windowWidth;
-    int windowHeight;
-    int letter = 32;
-    int width;
-    int height;
-    bool visible = true;
-    glm::ivec2 position;
-    glm::vec3 color;
-    void genBox();
-    std::vector<float> box;
-    std::vector<unsigned int> ebo;
+    std::vector<float> vertices;
+    std::vector<unsigned int> indices;
 };
 
 class HUD {
@@ -42,7 +28,6 @@ public:
     void generateMesh();
     void uploadTexture();
     std::vector<GUIItem> list;
-    std::vector<TextItem> textList;
     int EBOsize;
 };
 
