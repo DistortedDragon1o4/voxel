@@ -155,7 +155,6 @@ void ChunkLighting::propagateLight(const BlockCoords coords, const char channel,
     visitedChunkIndices.clear();
 }
 
-
 bool ChunkLighting::removeLight(const BlockCoords coords, const char channel, const unsigned char value, ChunkDataContainer &chunk) {
     int lightIndex = ((coords.x + 1) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + ((coords.y + 1) * (CHUNK_SIZE + 2)) + (coords.z + 1);
 

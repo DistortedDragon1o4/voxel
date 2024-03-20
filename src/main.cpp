@@ -171,8 +171,9 @@ int main(int argc, char** argv) {
 	boxDraw.list.push_back(box2);
 	boxDraw.generateMesh();
 
-	double prevTime = glfwGetTime();
-	double chunkTimer = glfwGetTime();
+	int numFrames = 0;
+	auto prevTime = std::chrono::high_resolution_clock::now();
+	int fps = 0;
 
 	glEnable(GL_DEPTH_TEST);
 	// glEnable(GL_CULL_FACE);
@@ -189,8 +190,6 @@ int main(int argc, char** argv) {
 	std::thread assigner(&ChunkProcessManager::chunkPopulator, &voxel.processManager);
 	std::thread generator(&ChunkProcessManager::generateChunks, &voxel.processManager);
 	std::thread builder(&ChunkProcessManager::buildChunks, &voxel.processManager);
-
-	int count = 0;
 
 	glm::vec3 sunDir = glm::vec3(cos(std::numbers::pi / 3), sin(std::numbers::pi / 3), 0.0);
 	float increment = 0.003;
@@ -227,15 +226,19 @@ int main(int argc, char** argv) {
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		double crntTime = glfwGetTime();
-		int fps = 1 / (crntTime - prevTime);
-		prevTime = crntTime;
+		auto crntTime = std::chrono::high_resolution_clock::now();
+
+		if (crntTime - prevTime >= std::chrono::milliseconds(250)) {
+			prevTime = crntTime;
+			fps = 4 * numFrames;
+			numFrames = 0;
+		}
+		numFrames++;
 
 		// sunDir.x = cos(counter * increment);
 		// sunDir.y = sin(counter * increment);
 		// counter++;
 
-		count++;
 
 
 		voxel.camera.mouseInput(window);
@@ -255,16 +258,6 @@ int main(int argc, char** argv) {
 
 		voxel.renderer.renderVoxelWorld();
 
-		int increment;
-		double timeDiff = glfwGetTime();
-		int cps;
-		if (timeDiff - chunkTimer > 1.0) {
-			increment = newChunkCount - chunkCount;
-			cps = increment / (timeDiff - chunkTimer);
-			chunkTimer = timeDiff;
-			chunkCount = newChunkCount;
-		}
-
 		glDisable(GL_CULL_FACE);
 
 		voxel.highlightCursor.renderCursor();
@@ -281,11 +274,11 @@ int main(int argc, char** argv) {
 		ImGui::Begin("FPS and Coordinates HUD", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoBringToFrontOnFocus);
 		ImGui::TextColored(ImVec4(0.6, 0.986, 0.53, 1.0), "Voxel Test");
 		ImGui::Spacing();
-		std::string fpsString = "FPS: " + std::to_string(fps);
+		std::string fpsString = "FPS: " + std::to_string(fps) + "	(" + std::to_string(1.0 / double(fps)) + "ms)";
 		ImGui::Text("%s", fpsString.c_str());
 		std::string loadedChunkString = "Loaded Chunks: " + std::to_string(newChunkCount) + " / " + std::to_string(RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE);
 		ImGui::Text("%s", loadedChunkString.c_str());
-		std::string cpsString = "CPS: " + std::to_string(cps);
+		std::string cpsString = "CPS: " + std::to_string(0);
 		ImGui::Text("%s", cpsString.c_str());
 		ImGui::Spacing();
 		std::string coordinateString = "XYZ: " + std::to_string(voxel.camera.Position.x) + " | " + std::to_string(voxel.camera.Position.y) + " | " + std::to_string(voxel.camera.Position.z);

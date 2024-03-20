@@ -67,6 +67,8 @@ struct ChunkBuilder {
 	void combineFace(int coordX, int coordY, int coordZ, ChunkDataContainer &chunk);
 	int blockAt(int coordX, int coordY, int coordZ, ChunkDataContainer &crntChunk);
 
+	std::array<std::vector<unsigned int>, 6> temporaryMesh;
+
 	int ambientOccIndex(int coordinates);
 };
 

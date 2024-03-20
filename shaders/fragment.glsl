@@ -1,24 +1,39 @@
 #version 460 core
 
+struct ChunkLightData {
+	int data[34 * 34 * 34];
+};
 
-in vec3 normal;
+layout (binding = 4, std430) buffer LightDataBuffer {
+ 	ChunkLightData lightData[];
+} lightDataBuffer;
+
+in flat int ERROR;
+
 in vec2 texCoord;
 
-// in float ambientOcc;
-
-in float camDistance;
 in float blockID;
+in vec3 normal;
+in float camDistance;
+
+in flat int index;
+in vec3 crntCoord;
 
 in vec4 ambientOcc;
 in vec2 ambientOccPos;
 
-in vec3 vertexLightValues[4];
+out vec4 FragColor;
+
+
 
 uniform sampler2DArray array;
 uniform vec3 camDir;
 uniform vec3 sunDir;
 
-out vec4 FragColor;
+
+
+// DO NOT CHANGE
+int CHUNK_SIZE = 32;
 
 float sunStrength = 0.0f;
 vec3 sunColor = vec3(0.9882f, 0.9450f, 0.8117f);
@@ -58,10 +73,37 @@ float getAmbientOcc() {
 	return sqrt(1.0 - pow(k - 1.265, 8.0));
 }
 
-vec3 getLighting(vec2 position) {
-	vec3 x1 = mix(vertexLightValues[0], vertexLightValues[1], position.x);
-	vec3 x2 = mix(vertexLightValues[3], vertexLightValues[2], position.x);
-	return mix(x1, x2, position.y);
+vec3 getLighting(vec3 position) {
+	vec3 surroundingLight[8];
+	ivec3 crntPosition = ivec3(floor(position - vec3(0.5)));
+
+	int x;
+	int y;
+	int z;
+
+	for (int i = 0; i < 8; i++) {
+		x = i >> 2;
+		y = (i >> 1) & 1;
+		z = i & 1;
+		int lightVal = lightDataBuffer.lightData[index].data[((crntPosition.x + x + 1) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + ((crntPosition.y + y + 1) * (CHUNK_SIZE + 2)) + (crntPosition.z + z + 1)];
+		surroundingLight[i].x = (lightVal >> 16) & 0xff;
+		surroundingLight[i].y = (lightVal >> 8) & 0xff;
+		surroundingLight[i].z = lightVal & 0xff;
+	}
+
+	vec3 relativePosition = position - vec3(crntPosition) - vec3(0.5);
+
+	vec3 z1 = mix(surroundingLight[0], surroundingLight[1], relativePosition.z);
+	vec3 z2 = mix(surroundingLight[2], surroundingLight[3], relativePosition.z);
+
+	vec3 y1 = mix(z1, z2, relativePosition.y);
+
+	z1 = mix(surroundingLight[4], surroundingLight[5], relativePosition.z);
+	z2 = mix(surroundingLight[6], surroundingLight[7], relativePosition.z);
+
+	vec3 y2 = mix(z1, z2, relativePosition.y);
+
+	return mix(y1, y2, relativePosition.x) / 255.0;
 }
 
 float gamma = 2.2;
@@ -83,7 +125,7 @@ void main() {
 	
 	float ambientOccLocal = getAmbientOcc();
 
-	vec3 blockLight = getLighting(ambientOccPos);
+	vec3 blockLight = getLighting(crntCoord);
 
 
 
@@ -122,7 +164,7 @@ void main() {
 	}
 
 
-	vec3 light = (vec3(ambientLight) + blockLight + sunLight) * ambientOccLocal;
+	vec3 light = (vec3(ambientLight) + blockLight + sunLight);
 
 	frag = vec4(frag.xyz * light, 1.0f);
 

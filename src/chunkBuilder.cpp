@@ -93,75 +93,14 @@ void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, ChunkDataCont
                             + ((blocks.blocks[blockAt(coordX, coordY + 1, coordZ, chunk)].isSolid | (blockAt(coordX, coordY + 1, coordZ, chunk) == blockID)) << 1)
                             +  (blocks.blocks[blockAt(coordX, coordY - 1, coordZ, chunk)].isSolid | (blockAt(coordX, coordY - 1, coordZ, chunk) == blockID));
 
-    std::array<int, 27> surroundingBlockMap = {
-        blockAt(coordX - 1, coordY - 1, coordZ - 1, chunk),
-        blockAt(coordX - 1, coordY - 1, coordZ, chunk),
-        blockAt(coordX - 1, coordY - 1, coordZ + 1, chunk),
-        blockAt(coordX - 1, coordY, coordZ - 1, chunk),
-        blockAt(coordX - 1, coordY, coordZ, chunk),
-        blockAt(coordX - 1, coordY, coordZ + 1, chunk),
-        blockAt(coordX - 1, coordY + 1, coordZ - 1, chunk),
-        blockAt(coordX - 1, coordY + 1, coordZ, chunk),
-        blockAt(coordX - 1, coordY + 1, coordZ + 1, chunk),
+    unsigned int prevCullMap =    ((blocks.blocks[blockAt(coordX + 1, coordY, coordZ - 1, chunk)].isSolid | (blockAt(coordX + 1, coordY, coordZ, chunk) == blockID)) << 3)
+                                + ((blocks.blocks[blockAt(coordX - 1, coordY, coordZ - 1, chunk)].isSolid | (blockAt(coordX - 1, coordY, coordZ, chunk) == blockID)) << 2)
+                                + ((blocks.blocks[blockAt(coordX, coordY + 1, coordZ - 1, chunk)].isSolid | (blockAt(coordX, coordY + 1, coordZ, chunk) == blockID)) << 1)
+                                +  (blocks.blocks[blockAt(coordX, coordY - 1, coordZ - 1, chunk)].isSolid | (blockAt(coordX, coordY - 1, coordZ, chunk) == blockID));
 
-        blockAt(coordX, coordY - 1, coordZ - 1, chunk),
-        blockAt(coordX, coordY - 1, coordZ, chunk),
-        blockAt(coordX, coordY - 1, coordZ + 1, chunk),
-        blockAt(coordX, coordY, coordZ - 1, chunk),
-        blockAt(coordX, coordY, coordZ, chunk),
-        blockAt(coordX, coordY, coordZ + 1, chunk),
-        blockAt(coordX, coordY + 1, coordZ - 1, chunk),
-        blockAt(coordX, coordY + 1, coordZ, chunk),
-        blockAt(coordX, coordY + 1, coordZ + 1, chunk),
-
-        blockAt(coordX + 1, coordY - 1, coordZ - 1, chunk),
-        blockAt(coordX + 1, coordY - 1, coordZ, chunk),
-        blockAt(coordX + 1, coordY - 1, coordZ + 1, chunk),
-        blockAt(coordX + 1, coordY, coordZ - 1, chunk),
-        blockAt(coordX + 1, coordY, coordZ, chunk),
-        blockAt(coordX + 1, coordY, coordZ + 1, chunk),
-        blockAt(coordX + 1, coordY + 1, coordZ - 1, chunk),
-        blockAt(coordX + 1, coordY + 1, coordZ, chunk),
-        blockAt(coordX + 1, coordY + 1, coordZ + 1, chunk)
-    };
-
-    unsigned int ambientOccMap =      (blocks.blocks[surroundingBlockMap[26]].castsAO << 26)
-                                    + (blocks.blocks[surroundingBlockMap[25]].castsAO << 25)
-                                    + (blocks.blocks[surroundingBlockMap[24]].castsAO << 24)
-                                    + (blocks.blocks[surroundingBlockMap[23]].castsAO << 23)
-                                    + (0 << 22)      //4
-                                    + (blocks.blocks[surroundingBlockMap[21]].castsAO << 21)
-                                    + (blocks.blocks[surroundingBlockMap[20]].castsAO << 20)
-                                    + (blocks.blocks[surroundingBlockMap[19]].castsAO << 19)
-                                    + (blocks.blocks[surroundingBlockMap[18]].castsAO << 18)
-                                    + (blocks.blocks[surroundingBlockMap[17]].castsAO << 17)
-                                    + (0 << 16)      //10
-                                    + (blocks.blocks[surroundingBlockMap[15]].castsAO << 15)
-                                    + (0 << 14)
-                                    + (0 << 13)
-                                    + (0 << 12)
-                                    + (blocks.blocks[surroundingBlockMap[11]].castsAO << 11)
-                                    + (0 << 10)      //15
-                                    + (blocks.blocks[surroundingBlockMap[9]].castsAO << 9)
-                                    + (blocks.blocks[surroundingBlockMap[8]].castsAO << 8)
-                                    + (blocks.blocks[surroundingBlockMap[7]].castsAO << 7)
-                                    + (blocks.blocks[surroundingBlockMap[6]].castsAO << 6)
-                                    + (blocks.blocks[surroundingBlockMap[5]].castsAO << 5)
-                                    + (0 << 4)
-                                    + (blocks.blocks[surroundingBlockMap[3]].castsAO << 3)
-                                    + (blocks.blocks[surroundingBlockMap[2]].castsAO << 2)
-                                    + (blocks.blocks[surroundingBlockMap[1]].castsAO << 1)
-                                    + (blocks.blocks[surroundingBlockMap[0]].castsAO << 0);
-
-    std::array<unsigned int, 24> faceAmbientOccMask = {
-        //  -  -  |  -  -  |  -  -  |   |  -  -  |  -  -  |  -  -  |   |  -  -  |  -  -  |  -  -  |   |  -  -  |  -  -  |  -  -  |
-        0b000000110000000100000000000, 0b000000000000000100000000110, 0b000000000000000001000000011, 0b000000011000000001000000000,
-        0b011000000001000000000000000, 0b000000000001000000011000000, 0b000000000100000000110000000, 0b110000000100000000000000000,
-        0b000000000000000000110100000, 0b000000000000000000011001000, 0b000000000000000000000001011, 0b000000000000000000000100110,
-        0b011001000000000000000000000, 0b110100000000000000000000000, 0b000100110000000000000000000, 0b000001011000000000000000000,
-        0b000000000001000000001001000, 0b001001000001000000000000000, 0b000001001000000001000000000, 0b000000000000000001000001001,
-        0b100100000100000000000000000, 0b000000000100000000100100000, 0b000000000000000100000100100, 0b000100100000000100000000000
-    };
+    int previousBlockID = blockAt(coordX, coordY, coordZ - 1, chunk);
+    if (coordZ == 0)
+        previousBlockID = 0;
 
     // we will be having 32x32x32 chunks, but each block will be made in an 16x16x16 grid, the mesh of the block will be predeterminned
 
@@ -175,15 +114,24 @@ void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, ChunkDataCont
 
     for (int i = 0; i < crntBlock.model.size() / 36; i++) {
         if (!fastFloat::atBit(cullMap, crntBlock.faceType[i])) {
-            int j = 8 * i;
-            int faceType = crntBlock.faceType[i];
-            std::vector<int> face = std::vector<int>(8);
-            face.at(0) = crntBlock.blockBitMap.at(j + 0) + offset;   face.at(1) = crntBlock.blockBitMap.at(j + 1) + ((faceAmbientOccMask[(4 * faceType) + 0] & ambientOccMap) > 0);
-            face.at(2) = crntBlock.blockBitMap.at(j + 2) + offset;   face.at(3) = crntBlock.blockBitMap.at(j + 3) + ((faceAmbientOccMask[(4 * faceType) + 1] & ambientOccMap) > 0);
-            face.at(4) = crntBlock.blockBitMap.at(j + 4) + offset;   face.at(5) = crntBlock.blockBitMap.at(j + 5) + ((faceAmbientOccMask[(4 * faceType) + 2] & ambientOccMap) > 0);
-            face.at(6) = crntBlock.blockBitMap.at(j + 6) + offset;   face.at(7) = crntBlock.blockBitMap.at(j + 7) + ((faceAmbientOccMask[(4 * faceType) + 3] & ambientOccMap) > 0);
-            
-            chunk.mesh.insert(chunk.mesh.end(), face.begin(), face.end());
+            int faceType = (crntBlock.blockBitMap.at((8 * i) + 1) >> 1) & 0b111;
+
+            if ((temporaryMesh.at(faceType).size() == 0) || (previousBlockID != blockID) || (faceType > 3) || (fastFloat::atBit(prevCullMap, crntBlock.faceType[i])) || crntBlock.faceType[i] >= 6) {
+                int j = 8 * i;
+                std::vector<int> face = std::vector<int>(8);
+                face.at(0) = crntBlock.blockBitMap.at(j + 0) + offset;   face.at(1) = crntBlock.blockBitMap.at(j + 1);
+                face.at(2) = crntBlock.blockBitMap.at(j + 2) + offset;   face.at(3) = crntBlock.blockBitMap.at(j + 3);
+                face.at(4) = crntBlock.blockBitMap.at(j + 4) + offset;   face.at(5) = crntBlock.blockBitMap.at(j + 5);
+                face.at(6) = crntBlock.blockBitMap.at(j + 6) + offset;   face.at(7) = crntBlock.blockBitMap.at(j + 7);
+                
+                temporaryMesh.at(faceType).insert(temporaryMesh.at(faceType).end(), face.begin(), face.end());
+            } else {
+                for (int j = 0; j < 4; j++) {
+                    // std:: cout << temporaryMesh.at(faceType).size() << " " << j << " " << temporaryMesh.at(faceType).size() - 8 + (2 * j) << "\n";
+                    if (((crntBlock.blockBitMap.at((8 * i) + (2 * j)) & 0b11111) == 0b10000))
+                        temporaryMesh.at(faceType).at(temporaryMesh.at(faceType).size() - 8 + (2 * j)) += 0b10000;
+                }
+            }
         }
     }
 }
@@ -191,6 +139,9 @@ void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, ChunkDataCont
 int ChunkBuilder::buildChunk(ChunkDataContainer &chunk) {
 
     discardChunk = false;
+
+    for (int i = 0; i < 6; i++)
+        temporaryMesh[i].clear();
 
     // Early abort in case chunk is filled with air
     if (chunk.isSingleBlock && chunk.theBlock == 0) {
@@ -228,7 +179,6 @@ int ChunkBuilder::buildChunk(ChunkDataContainer &chunk) {
                 if (discardChunk == 1) {
                     chunk.unCompiledChunk = 1;
                     chunk.meshSize = 0;
-                    chunk.mesh.clear();
                     return -1;
                 }
             }
@@ -239,9 +189,11 @@ int ChunkBuilder::buildChunk(ChunkDataContainer &chunk) {
     if (discardChunk == 1) {
         chunk.unCompiledChunk = 1;
         chunk.meshSize = 0;
-        chunk.mesh.clear();
         return -1;
     }
+
+    for (int i = 0; i < 6; i++)
+        chunk.mesh.insert(chunk.mesh.end(), temporaryMesh[i].begin(), temporaryMesh[i].end());
 
     chunk.unCompiledChunk = 0;
     chunk.forUpdate = 0;
