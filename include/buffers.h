@@ -1,7 +1,6 @@
-#ifndef BUFFERS_CLASS_H
-#define BUFFERS_CLASS_H
+#pragma once
 
-#include "glad/glad.h"
+#include <gladContainer.h>
 #include <vector>
 #include <array>
 #include <coordinateContainers.h>
@@ -49,5 +48,3 @@ struct UnifiedGLBufferContainer {
     void create();
     void del();
 };
-
-#endif

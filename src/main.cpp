@@ -1,11 +1,15 @@
-#include <bitset>
+#define GLAD_GL_IMPLEMENTATION
+
+#include "../include/HUD.h"
+#include "../include/camera.h"
+#include "../include/chunkList.h"
+#include "../include/shaderCompiler.h"
+
 #include <glm/glm.hpp>
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_opengl3.h>
-#include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <cerrno>
 #include <cstdlib>
 #include <fstream>
 #include <glm/glm.hpp>
@@ -14,26 +18,17 @@
 #include <iostream>
 #include <math.h>
 #include <numbers>
-#include <sstream>
 #include <string>
 #include <vector>
 
-#include <assert.h>
 #include <chrono>
-#include <future>
 #include <thread>
 
-#include "FastNoise/Generators/Generator.h"
 #include "FastNoise/Generators/Perlin.h"
 #include "chunkDataContainer.h"
-#include "glm/trigonometric.hpp"
 #include "stb/stb_image.h"
 
-#include "../include/HUD.h"
-#include "../include/camera.h"
-#include "../include/chunkList.h"
-#include "../include/shaderCompiler.h"
-#include "../include/texture.h"
+
 
 #define PI 4 * atan(1)
 
@@ -120,7 +115,13 @@ int main(int argc, char** argv) {
 
 	glfwSwapInterval(0);
 
-	gladLoadGL();
+	int gladVersion = gladLoadGL(glfwGetProcAddress);
+	if (gladVersion == 0) {
+		std::cout << "Loading of OpenGL context failed successfully\n";
+		glfwTerminate();
+		return EXIT_FAILURE;
+	}
+
 
 	glEnable(GL_DEBUG_OUTPUT);
 	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -198,7 +199,7 @@ int main(int argc, char** argv) {
 
 	auto a = FastNoise::New<FastNoise::Perlin>();
 
-	std::cout << sizeof(VoxelGame) << " " << a->GenSingle3D(1.0, 1.0, 1.0, 1) << "\n";
+	std::cout << sizeof(VoxelGame) << " " << a->GenSingle3D(1.0, 1.0, 1.0, 1) << " " << GLFW_VERSION_MINOR << " " << GLFW_VERSION_REVISION << "\n";
 
 	voxel.renderer.chunkVisibleArrSync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
@@ -256,7 +257,9 @@ int main(int argc, char** argv) {
 		for (int i = 0; i < voxel.worldContainer.chunks.size(); i++)
 			voxel.processManager.lighting.updateLight(voxel.worldContainer.chunks[i]);
 
+		// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		voxel.renderer.renderVoxelWorld();
+		// glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 		glDisable(GL_CULL_FACE);
 

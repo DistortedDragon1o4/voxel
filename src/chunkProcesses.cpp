@@ -257,13 +257,11 @@ void ChunkProcessManager::generateChunks() {
 
         if (worldContainer.chunks.at(index).unGeneratedChunk == true) {
 
-            generator.initChunk(worldContainer.chunks[index].chunkData);
-            generator.generateChunk(worldContainer.chunks[index].chunkData, worldContainer.chunks[index].chunkID.x, worldContainer.chunks[index].chunkID.y, worldContainer.chunks[index].chunkID.z);
+            generator.generateChunk(worldContainer.chunks[index].chunkData, worldContainer.chunks[index].chunkID);
             
             worldContainer.chunks[index].unGeneratedChunk = 0;
             worldContainer.chunks[index].unCompiledChunk = 1;
 
-            worldContainer.chunks[index].compressChunk();
         }
     }
 }

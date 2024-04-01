@@ -73,6 +73,10 @@ float getAmbientOcc() {
 	return sqrt(1.0 - pow(k - 1.265, 8.0));
 }
 
+float rand(vec3 co){
+    return (fract(sin(dot(co, vec3(12.9898, 78.233, 45.857))) * 43758.5453) - 0.5) * 2.0;
+}
+
 vec3 getLighting(vec3 position) {
 	vec3 surroundingLight[8];
 	ivec3 crntPosition = ivec3(floor(position - vec3(0.5)));
@@ -103,7 +107,7 @@ vec3 getLighting(vec3 position) {
 
 	vec3 y2 = mix(z1, z2, relativePosition.y);
 
-	return mix(y1, y2, relativePosition.x) / 255.0;
+	return 1.78 * (mix(y1, y2, relativePosition.x) / 255.0);
 }
 
 float gamma = 2.2;
@@ -125,7 +129,10 @@ void main() {
 	
 	float ambientOccLocal = getAmbientOcc();
 
-	vec3 blockLight = getLighting(crntCoord);
+	vec3 newCrntCoord = floor(crntCoord * 16.0) / 16.0;
+	float factor = 0.117;
+
+	vec3 blockLight = getLighting(newCrntCoord + (factor * vec3(rand(1.366 * newCrntCoord), rand(2.346 * newCrntCoord), rand(3.241 * newCrntCoord))));
 
 
 

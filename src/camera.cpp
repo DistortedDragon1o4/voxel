@@ -39,7 +39,8 @@ void Camera::inputs(GLFWwindow* window) {
 
 	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
 		if (!captured) {
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+			// glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 			captured = true;
 		}
 	}
@@ -52,24 +53,17 @@ void Camera::inputs(GLFWwindow* window) {
 
 	if (captured) {
 		if (firstClick) {
-			glfwSetCursorPos(window, (double(width) / 2), (double(height) / 2));
+			glfwGetCursorPos(window, &oldMousePos.x, &oldMousePos.y);
 			firstClick = false;
 		}
 
-		double mouseX;
-		double mouseY;
-		glfwGetCursorPos(window, &mouseX, &mouseY);
+		glm::dvec2 mousePos;
+		glfwGetCursorPos(window, &mousePos.x, &mousePos.y);
 
-		double diffX = (mouseY - (double(height) / 2));
-		double diffY = (mouseX - (double(width) / 2));
+		glm::dvec2 diff = mousePos - oldMousePos;
 
-		if (abs(diffX) == 0.5)
-			diffX = 0;
-		if (abs(diffY) == 0.5)
-			diffY = 0;
-
-		double rotX = sensitivity * (diffX / double(height));	// means rotation about X axis
-		double rotY = sensitivity * (diffY / double(width));	// means rotation about Y axis
+		double rotX = sensitivity * (diff.y / double(height));	// means rotation about X axis
+		double rotY = sensitivity * (diff.x / double(width));	// means rotation about Y axis
 
 		sphericalOrientation.x += rotY;
 		if (sphericalOrientation.x > std::numbers::pi)
@@ -87,10 +81,9 @@ void Camera::inputs(GLFWwindow* window) {
 		Orientation.y = sin(sphericalOrientation.y);
 		Orientation.z = sin(sphericalOrientation.x) * cos(sphericalOrientation.y);
 
-		glfwSetCursorPos(window, (width / 2), (height / 2));
+		oldMousePos = mousePos;
 
 		if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) != GLFW_PRESS) {
-			// glfwSetCursorPos(window, (width / 2), (height / 2));
 			oldPosition = Position;
 		}
 	}

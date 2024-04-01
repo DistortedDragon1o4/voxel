@@ -1,5 +1,4 @@
-#ifndef HUD_CLASS_H
-#define HUD_CLASS_H
+#pragma once
 
 #include <iostream>
 #include "buffers.h"
@@ -30,5 +29,3 @@ public:
     std::vector<GUIItem> list;
     int EBOsize;
 };
-
-#endif

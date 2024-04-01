@@ -1,7 +1,6 @@
-#ifndef SHADER_COMPILER_H
-#define SHADER_COMPILER_H
+#pragma once
 
-#include <glad/glad.h>
+#include <gladContainer.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -57,5 +56,3 @@ public:
 
     void compileErrors(unsigned int shader, const char* type);
 };
-
-#endif

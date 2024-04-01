@@ -126,7 +126,7 @@ RayCastReturn RayCaster::rayCastTillBlock(const glm::dvec3 ray, const glm::dvec3
             int(floor(crntRayPosInt.z)) - (CHUNK_SIZE * chunkCoords.z)
         };
 
-        if(worldContainer.chunks.at(index).unGeneratedChunk == false && worldContainer.chunks.at(index).blockAtCoords(coords.at(0), coords.at(1), coords.at(2)) > 0) {
+        if(worldContainer.chunks.at(index).unGeneratedChunk == false && worldContainer.chunks.at(index).chunkData.blockAtCoords(coords.at(0), coords.at(1), coords.at(2)) > 0) {
             casterResults.blockPos = glm::ivec3(crntRayPosInt);
             casterResults.prevBlockPos = glm::ivec3(prevRayPosInt);
             casterResults.blockPosIndex = index;
@@ -154,7 +154,7 @@ void PlayerChunkInterface::breakBlock() {
     chunkCoords.z = int(floor(float(highlightCursor.crntLookingAtBlock.blockPos.z) / CHUNK_SIZE));
     BlockCoords coords(fastFloat::mod(highlightCursor.crntLookingAtBlock.blockPos.x, CHUNK_SIZE), fastFloat::mod(highlightCursor.crntLookingAtBlock.blockPos.y, CHUNK_SIZE), fastFloat::mod(highlightCursor.crntLookingAtBlock.blockPos.z, CHUNK_SIZE));
     if (highlightCursor.crntLookingAtBlock.blockPosIndex >= 0) {
-        worldContainer.chunks.at(highlightCursor.crntLookingAtBlock.blockPosIndex).setBlockAtCoords(coords.x, coords.y, coords.z, 0);
+        worldContainer.chunks.at(highlightCursor.crntLookingAtBlock.blockPosIndex).chunkData.setBlockAtCoords(coords.x, coords.y, coords.z, 0);
 
         RGB light(0xfcd899);
 
@@ -193,7 +193,7 @@ void PlayerChunkInterface::placeBlock() {
     chunkCoords.z = int(floor(float(highlightCursor.crntLookingAtBlock.prevBlockPos.z) / CHUNK_SIZE));
     BlockCoords coords(fastFloat::mod(highlightCursor.crntLookingAtBlock.prevBlockPos.x, CHUNK_SIZE), fastFloat::mod(highlightCursor.crntLookingAtBlock.prevBlockPos.y, CHUNK_SIZE), fastFloat::mod(highlightCursor.crntLookingAtBlock.prevBlockPos.z, CHUNK_SIZE));
     if (highlightCursor.crntLookingAtBlock.prevBlockPosIndex >= 0) {
-        worldContainer.chunks.at(highlightCursor.crntLookingAtBlock.prevBlockPosIndex).setBlockAtCoords(coords.x, coords.y, coords.z, 4);
+        worldContainer.chunks.at(highlightCursor.crntLookingAtBlock.prevBlockPosIndex).chunkData.setBlockAtCoords(coords.x, coords.y, coords.z, 4);
 
         RGB light(0xfcd899);
 

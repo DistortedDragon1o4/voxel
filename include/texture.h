@@ -1,10 +1,8 @@
-#ifndef TEXTURE_CLASS_H
-#define TEXTURE_CLASS_H
+#pragma once
 
 #include <iostream>
 #include <vector>
 #include <string>
-#include "glad/glad.h"
 #include "stb/stb_image.h"
 
 #include "shaderCompiler.h"
@@ -50,5 +48,3 @@ struct Sampler {
     void unbind();
     void del();
 };
-
-#endif

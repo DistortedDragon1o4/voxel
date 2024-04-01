@@ -1,25 +1,19 @@
 #include "../include/chunkGenerator.h"
 
-ChunkGen::ChunkGen() {
-    for (int i = 0; i < CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE; i++) {
-        chunk.push_back(0);
-        bfs.push_back(false);
-        light.push_back(16);
-    }
-}
-
-void ChunkGen::generateChunk(std::vector<short> &chunk, int coordX, int coordY, int coordZ) {
+void ChunkGen::generateChunk(ChunkData &chunkData, ChunkCoords chunkCoords) {
     std::vector <float> dataContainer(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
     // std::vector <float> dataContainer2(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
     // std::vector <float> dataContainer3(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE); 
 
-    fnGenerator->GenUniformGrid3D(dataContainer.data(), coordX * CHUNK_SIZE, coordY * CHUNK_SIZE, coordZ * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, frequency, seed);
+    fnGenerator->GenUniformGrid3D(dataContainer.data(), chunkCoords.x * CHUNK_SIZE, chunkCoords.y * CHUNK_SIZE, chunkCoords.z * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, frequency, seed);
     // fnGenerator2->GenUniformGrid3D(dataContainer2.data(), coordX * CHUNK_SIZE, coordY * CHUNK_SIZE, coordZ * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, frequency * 4, seed);
     // fnGenerator3->GenUniformGrid3D(dataContainer3.data(), coordX * CHUNK_SIZE, coordY * CHUNK_SIZE, coordZ * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, frequency * 2, seed + 500);
 
     int index = 0;
 
-    for (int i = 0; i < CHUNK_SIZE; i++) {
+    std::vector<short> rawBlockData = std::vector<short>(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
+
+    for (int i = 0; i < CHUNK_SIZE; i++) {        
         for (int j = 0; j < CHUNK_SIZE; j++) {
             for (int k = 0; k < CHUNK_SIZE; k++) {
                 // if (i + j + k < CHUNK_SIZE)
@@ -33,7 +27,7 @@ void ChunkGen::generateChunk(std::vector<short> &chunk, int coordX, int coordY, 
                 }*/
 
                 if (dataContainer[index] <= 0) {
-                    chunk[(k * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + i] = 1;
+                    rawBlockData[(k * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + i] = 1;
                     // if (dataContainer2[index] < 0)
                     //     chunk[(k * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + i] = 4;
                     // if (dataContainer3[index] < 0)
@@ -57,8 +51,6 @@ void ChunkGen::generateChunk(std::vector<short> &chunk, int coordX, int coordY, 
             }
         }
     }
-}
 
-void ChunkGen::initChunk(std::vector<short> &chunk) {
-    chunk = ChunkGen::chunk;
+    chunkData.raw(rawBlockData);
 }

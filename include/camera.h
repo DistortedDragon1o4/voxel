@@ -1,10 +1,9 @@
-#ifndef CAMERA_CLASS_H
-#define CAMERA_CLASS_H
+#pragma once
 
 #include "glm/fwd.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 
-#include "glad/glad.h"
+#include <gladContainer.h>
 #include <GLFW/glfw3.h>
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
@@ -53,6 +52,6 @@ struct Camera {
     int rightCount = 0;
 
     void mouseInput(GLFWwindow* window);
-};
 
-#endif
+    glm::dvec2 oldMousePos;
+};

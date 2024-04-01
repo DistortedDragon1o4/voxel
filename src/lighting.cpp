@@ -141,7 +141,7 @@ void ChunkLighting::propagateLight(const BlockCoords coords, const char channel,
         if (crntIndex == -1)
             std::cout << "You deserve to die, the lighting engine has bugs. (propagateLight)\n";
 
-        if (blocks.blocks[crntChunk.blockAtCoords(crntCoords)].isSolid == false) {
+        if (blocks.blocks[crntChunk.chunkData.blockAtCoords(crntCoords)].isSolid == false) {
             bool doISearch = setLight(crntCoords, channel, newLight, crntChunk);
 
             if (newLight != 0 && doISearch)
@@ -231,7 +231,7 @@ void ChunkLighting::depropagateLight(const BlockCoords coords, const char channe
         if (crntIndex == -1)
             std::cout << "You deserve to die, the lighting engine has bugs. (depropagateLight)\n";
 
-        if (blocks.blocks[crntChunk.blockAtCoords(crntCoords)].isSolid == false) {
+        if (blocks.blocks[crntChunk.chunkData.blockAtCoords(crntCoords)].isSolid == false) {
             bool doISearch = removeLight(crntCoords, channel, newLight, crntChunk);
 
             if (newLight != 0 && doISearch)
@@ -249,7 +249,7 @@ void ChunkLighting::lightAO(ChunkDataContainer &chunk) {
     for (int i = 0; i < CHUNK_SIZE; i++) {
         for (int j = 0; j < CHUNK_SIZE; j++) {
             for (int k = 0; k < CHUNK_SIZE; k++) {
-                if (blocks.blocks[chunk.blockAtCoords(i, j, k)].castsAO) {
+                if (blocks.blocks[chunk.chunkData.blockAtCoords(i, j, k)].castsAO) {
                     int lightIndex = ((i + 1) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + ((j + 1) * (CHUNK_SIZE + 2)) + (k + 1);
                     chunk.lightData.data[lightIndex] |= 1 << 30;
 

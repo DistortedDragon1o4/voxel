@@ -59,7 +59,7 @@ int ChunkBuilder::blockAt(int coordX, int coordY, int coordZ, ChunkDataContainer
 
     int neighbourIndex = crntChunk.neighbouringChunkIndices[(a * 9) + (b * 3) + c];
     if (neighbourIndex != -1 && worldContainer.chunks[neighbourIndex].unGeneratedChunk == false) {
-        return worldContainer.chunks[neighbourIndex].blockAtCoords(fastFloat::mod(coordX, CHUNK_SIZE), fastFloat::mod(coordY, CHUNK_SIZE), fastFloat::mod(coordZ, CHUNK_SIZE));
+        return worldContainer.chunks[neighbourIndex].chunkData.blockAtCoords(fastFloat::mod(coordX, CHUNK_SIZE), fastFloat::mod(coordY, CHUNK_SIZE), fastFloat::mod(coordZ, CHUNK_SIZE));
     } else {
         discardChunk = true;
         return 0;
@@ -75,7 +75,7 @@ int ChunkBuilder::ambientOccIndex(int coordinates) {
 }
 
 void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, ChunkDataContainer &chunk) {
-    int blockID = chunk.blockAtCoords(coordX, coordY, coordZ);
+    int blockID = chunk.chunkData.blockAtCoords(coordX, coordY, coordZ);
     Blocks &crntBlock = blocks.blocks[blockID];
 
     // this is the cull bitmap, 1 means the face is culled, 0 means the face is visible
@@ -172,8 +172,8 @@ int ChunkBuilder::buildChunk(ChunkDataContainer &chunk) {
     for (int i = 0; i < CHUNK_SIZE; i++) {
         for (int j = 0; j < CHUNK_SIZE; j++) {
             for (int k = 0; k < CHUNK_SIZE; k++) {
-                if (chunk.blockAtCoords(i, j, k) > 0) {
-                    combineFace(i, j, k, chunk);
+                if (chunk.chunkData.blockAtCoords(j, i, k) > 0) {
+                    combineFace(j, i, k, chunk);
                 }
                 // Abort mechanism in case a chunk gets unloaded mid-way
                 if (discardChunk == 1) {

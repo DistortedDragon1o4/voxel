@@ -1,7 +1,6 @@
-#ifndef VAO_CLASS_H
-#define VAO_CLASS_H
+#pragma once
 
-#include <glad/glad.h>
+#include <gladContainer.h>
 #include <glm/glm.hpp>
 #include "buffers.h"
 
@@ -29,5 +28,3 @@ struct newVAO {
     void unbind();
     void del();
 };
-
-#endif

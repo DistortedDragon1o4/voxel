@@ -1,5 +1,4 @@
-#ifndef CONTAINERS_CLASS_H
-#define CONTAINERS_CLASS_H
+#pragma once
 
 #include <array>
 #include <functional>
@@ -56,5 +55,3 @@ struct ChunkProperties {
 struct RegionDataContainer {
     std::array<ChunkProperties, 64> chunkProperties;
 };
-
-#endif

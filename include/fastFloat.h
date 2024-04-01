@@ -1,5 +1,4 @@
-#ifndef FAST_FLOAT_CLASS_H
-#define FAST_FLOAT_CLASS_H
+#pragma once
 
 class fastFloat {
 public:
@@ -51,5 +50,3 @@ public:
         return (value >> position) & mask;
     }
 };
-
-#endif

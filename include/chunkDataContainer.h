@@ -1,12 +1,11 @@
-#ifndef CHUNK_DATA_CLASS_H
-#define CHUNK_DATA_CLASS_H
+#pragma once
 
 #include <string>
 #include <array>
 #include <vector>
 #include <queue>
 #include <bitset>
-#include "VAO.h"
+#include <VAO.h>
 #include <coordinateContainers.h>
 
 #define NUM_BLOCKS 6
@@ -23,9 +22,39 @@ struct ChunkLightContainer {
     std::array<unsigned int, (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)> data;
 };
 
+struct Layer {
+    Layer(const short _theBlock) {theBlock = _theBlock;};
+    Layer() {blockData = std::vector<short>(CHUNK_SIZE * CHUNK_SIZE);};
+
+    bool isSingleBlock = true;
+    short theBlock = 0;
+    std::vector<short> blockData;
+
+    void setBlockAtCoords(const int _x, const int _z, const short block);
+
+    void compressLayer();
+};
+
+struct ChunkData {
+    void clear();
+    void raw(std::vector<short> &rawBlockData);
+
+    bool isSingleBlock = true;
+    short theBlock = 0;
+    std::vector<Layer> layerData;
+
+    short blockAtCoords(const BlockCoords coords);
+    short blockAtCoords(const int _x, const int _y, const int _z);
+    void setBlockAtCoords(const BlockCoords coords, const short block);
+    void setBlockAtCoords(const int _x, const int _y, const int _z, const short block);
+
+    void compressChunk();
+};
+
 struct ChunkDataContainer {
 	// stores the blockID of each block in the chunk
-	std::vector<short> chunkData;
+	// std::vector<short> chunkData;
+    ChunkData chunkData;
 	
     std::vector<unsigned int> mesh;
 
@@ -57,12 +86,12 @@ struct ChunkDataContainer {
     bool isSingleBlock = false;
     short theBlock = 0;
 
-    short blockAtCoords(const BlockCoords coords);
-    short blockAtCoords(const int _x, const int _y, const int _z);
-    void setBlockAtCoords(const BlockCoords coords, const short block);
-    void setBlockAtCoords(const int _x, const int _y, const int _z, const short block);
+    // short blockAtCoords(const BlockCoords coords);
+    // short blockAtCoords(const int _x, const int _y, const int _z);
+    // void setBlockAtCoords(const BlockCoords coords, const short block);
+    // void setBlockAtCoords(const int _x, const int _y, const int _z, const short block);
 
-    void compressChunk();
+    // void compressChunk();
 };
 
 
@@ -127,5 +156,3 @@ struct Blocks {
     std::vector<unsigned int> blockBitMap;
     std::vector<int> faceType;
 };
-
-#endif

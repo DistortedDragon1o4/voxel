@@ -1,5 +1,4 @@
 #include "../include/shaderCompiler.h"
-#include <glad/glad.h>
 
 Shader::Shader(const std::string vertexPath, const std::string fragmentPath) {
 	const std::string vertexSourceStr = FileImport::openFile(vertexPath);

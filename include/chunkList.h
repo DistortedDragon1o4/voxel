@@ -1,5 +1,4 @@
-#ifndef CHUNK_LIST_CLASS_H
-#define CHUNK_LIST_CLASS_H
+#pragma once
 
 #include "camera.h"
 #include "coordinateContainers.h"
@@ -302,5 +301,3 @@ struct VoxelGame {
 
 	Renderer renderer;
 };
-
-#endif

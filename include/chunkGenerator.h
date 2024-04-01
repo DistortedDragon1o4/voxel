@@ -1,19 +1,21 @@
-#ifndef CHUNK_GEN_CLASS_H
-#define CHUNK_GEN_CLASS_H
+#pragma once
 
 #include <math.h>
+#include "coordinateContainers.h"
 #include "fastFloat.h"
 #include <vector>
+
+#include <chunkDataContainer.h>
 
 #include "FastNoise/FastNoise.h"
 
 #define CHUNK_SIZE 32
 
-class ChunkGen {
-private:
+struct ChunkGen {
 	float frequency = 0.005f;
 	int seed = 1337;
-public:
+
+
 	std::vector<short> chunk;
 	std::vector<bool> bfs;
 	std::vector<unsigned short> light;
@@ -25,12 +27,5 @@ public:
 	FastNoise::SmartNode<> fnGenerator2 = FastNoise::NewFromEncodedNodeTree("DQACAAAAhesRQAcAAKRwvT8ACtcjPg==");
 	FastNoise::SmartNode<> fnGenerator3 = FastNoise::NewFromEncodedNodeTree("DQACAAAAhesRQAcAAKRwvT8ACtcjPg==");
 
-	ChunkGen();
-
-	void generateChunk(std::vector<short> &chunk, int coordX, int coordY, int coordZ);
-	void initChunk(std::vector<short> &chunk);
-
-	int returnBlock(int coordX, int coordY, int coordZ);
+	void generateChunk(ChunkData &chunkData, ChunkCoords chunkCoords);
 };
-
-#endif
