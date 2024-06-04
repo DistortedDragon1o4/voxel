@@ -14,7 +14,7 @@
 
 VoxelGame::VoxelGame(int &width, int &height, const glm::dvec3 position, const std::string dir) :
 	voxelShader(dir + "/shaders/vertex.glsl", dir + "/shaders/fragment.glsl"),
-	voxelBlockTextureArray(0, "blocks/", 1, NUM_TEXTURES, dir + "/"),
+	voxelBlockTextureArray(1, "blocks/", 1, NUM_TEXTURES, dir + "/"),
 	camera(width, height, position),
     blocks(dir),
 	worldContainer(camera),
@@ -22,8 +22,8 @@ VoxelGame::VoxelGame(int &width, int &height, const glm::dvec3 position, const s
 	highlightCursor(rayCaster, camera, dir),
 	processManager(worldContainer, blocks, camera),
 	interface(worldContainer, processManager, highlightCursor),
-	renderer(voxelShader, voxelBlockTextureArray, camera, worldContainer, processManager.lighting, blocks, dir) {
-		voxelBlockTextureArray.TexUnit(voxelShader, "array", 0);
+	renderer(voxelShader, voxelBlockTextureArray, camera, worldContainer, processManager.lighting, blocks, highlightCursor, dir) {
+		voxelBlockTextureArray.TexUnit(voxelShader, "array", 1);
 	}
 
 // More stuff should be added here

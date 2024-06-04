@@ -31,9 +31,11 @@ out vec3 crntCoord;
 out vec4 ambientOcc;
 out vec2 ambientOccPos;
 
+out vec3 worldSpaceCoords;
 
 uniform mat4 cameraMatrix;
 uniform vec3 camPos;
+
 
 // DO NOT CHANGE
 float CHUNK_SIZE = 32.0;
@@ -63,26 +65,29 @@ uint indices[6] = {
 	2, 3, 0
 };
 
+const int coordMask = 0x3ff;
+
+ivec3 chunkID = ivec3(memoryRegister.unit[gl_BaseInstance].x, memoryRegister.unit[gl_BaseInstance].y, memoryRegister.unit[gl_BaseInstance].z);
+
 void main() {
 
 	int dataBlock1 = memoryBlock.v[((memoryRegister.unit[gl_BaseInstance].memoryIndex / 4) + 1) + (2 * ((4 * (gl_VertexID / 6)) + indices[gl_VertexID % 6]))];
 	int dataBlock2 = memoryBlock.v[((memoryRegister.unit[gl_BaseInstance].memoryIndex / 4) + 1) + (2 * ((4 * (gl_VertexID / 6)) + indices[gl_VertexID % 6])) + 1];
 
-	ivec3 chunkID = ivec3(memoryRegister.unit[gl_BaseInstance].x, memoryRegister.unit[gl_BaseInstance].y, memoryRegister.unit[gl_BaseInstance].z);
 	index = gl_BaseInstance;
 
 	// Stuff left to do to fix precision issues
 
-	const int coordMask = 0x3ff;
 	ivec3 coords = ivec3(((dataBlock1 >> 20) & coordMask), ((dataBlock1 >> 10) & coordMask), (dataBlock1 & coordMask));
 	vec3 mesh = vec3(float(coords.x / 16.0) + (chunkID.x * CHUNK_SIZE), float(coords.y / 16.0) + (chunkID.y * CHUNK_SIZE), float(coords.z / 16.0) + (chunkID.z * CHUNK_SIZE));
+	worldSpaceCoords = mesh;
 	mesh = mesh - camPos;
 	gl_Position = vec4(cameraMatrix * vec4(mesh, 1.0));
 
 	int length = abs((memoryBlock.v[((memoryRegister.unit[gl_BaseInstance].memoryIndex / 4) + 1) + (2 * ((4 * (gl_VertexID / 6))))] & coordMask) - (memoryBlock.v[((memoryRegister.unit[gl_BaseInstance].memoryIndex / 4) + 1) + (2 * ((4 * (gl_VertexID / 6)) + 2))] & coordMask));
 	int multiplier = length / 16;
 
-	camDistance = distance(vec3(mesh), camPos);
+	camDistance = distance(mesh, camPos);
 
 	const int texMask = 0x3ff;
 	int texMap = (dataBlock2 >> 4) & texMask;
@@ -113,6 +118,7 @@ void main() {
 	ambientOccPos = ambientOccArr[indices[gl_VertexID % 6] % 4];
 
 	crntCoord = vec3(coords) / 16.0;
+
 
 	ERROR = memoryBlock.v[memoryRegister.unit[gl_BaseInstance].memoryIndex / 4];
 }

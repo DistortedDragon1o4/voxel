@@ -12,17 +12,24 @@ namespace std {
     typedef basic_string<unsigned char> ustring;
 }
 
-class Texture {
-public:
-    std::string assets = "assets/";
-    GLuint ID;
+struct Texture {
+    unsigned int ID;
     GLenum type;
-    Texture(const char* imagePath, GLenum texType, GLenum slot, GLenum format, GLenum pixelType, std::string path);
+    int slot;
 
-    void TexUnit(Shader& shader, const char* uniform, GLuint unit);
-    void Bind();
-    void Unbind();
-    void Delete();
+    unsigned int width;
+    unsigned int height;
+
+    void genTexture2d(unsigned int _width, unsigned int _height, GLenum internalFormat);
+    void genTextureArray2d(unsigned int _width, unsigned int _height, unsigned int _numLayers, GLenum internalFormat);
+
+    void texUnit(Shader& shader, const char* uniform);
+
+    void bind();
+    void unbind();
+
+    void create(GLenum _type, int _slot);
+    void del();
 };
 
 class TextureArray {
@@ -46,5 +53,17 @@ struct Sampler {
 
     void bind(int slot);
     void unbind();
+    void del();
+};
+
+struct Framebuffer {
+    unsigned int ID;
+
+    void bindTexture(Texture &texture);
+
+    void bind();
+    void unbind();
+
+    void create();
     void del();
 };

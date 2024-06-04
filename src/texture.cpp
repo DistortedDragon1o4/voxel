@@ -1,56 +1,60 @@
 #include "../include/texture.h"
-#include "chunkList.h"
 
-Texture::Texture(const char* imagePath, GLenum texType, GLenum slot, GLenum format, GLenum pixelType, std::string path) {
-    type = texType;
+void Texture::genTexture2d(unsigned int _width, unsigned int _height, GLenum internalFormat) {
+	if (type != GL_TEXTURE_2D)
+		return;
 
-    std::string image = imagePath;
-    image = path + assets + image;
+	width = _width;
+	height = _height;
 
-    int widthImg, heightImg, numColCh;
-	stbi_set_flip_vertically_on_load(true);
-	unsigned char* bytes = stbi_load(image.c_str(), &widthImg, &heightImg, &numColCh, 0);
+	glTextureParameteri(ID, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTextureParameteri(ID, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTextureParameteri(ID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTextureParameteri(ID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	if (!bytes) {
-		std::cout << "Failed loading image successfully\n";
-	}
-
-	// Deprecated
-
-	glGenTextures(1, &ID);
-	glActiveTexture(slot);
-	glBindTexture(texType, ID);
-
-	glTexParameteri(texType, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(texType, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-	glTexParameteri(texType, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(texType, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-	glTexImage2D(texType, 0, GL_RGBA, widthImg, heightImg, 0, format, pixelType, bytes);
-	glGenerateMipmap(texType);
-
-	stbi_image_free(bytes);
-	glBindTexture(texType, 0);
+	glTextureStorage2D(ID, 1, internalFormat, width, height);
 }
 
-void Texture::TexUnit(Shader& shader, const char* uniform, GLuint unit) {
+void Texture::genTextureArray2d(unsigned int _width, unsigned int _height, unsigned int _numLayers, GLenum internalFormat) {
+	if (type != GL_TEXTURE_2D_ARRAY)
+		return;
+
+	width = _width;
+	height = _height;
+
+	glTextureParameteri(ID, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTextureParameteri(ID, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTextureParameteri(ID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTextureParameteri(ID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glTextureStorage3D(ID, 1, internalFormat, width, height, _numLayers);
+}
+
+void Texture::texUnit(Shader& shader, const char* uniform) {
     GLuint tex = glGetUniformLocation(shader.ID, uniform);
 	shader.Activate();
-	glUniform1i(tex, unit);
+	glUniform1i(tex, slot);
 }
 
-void Texture::Bind() {
-	glBindTexture(type, ID);
+void Texture::bind() {
+	glBindTextureUnit(slot, ID);
 }
 
-void Texture::Unbind() {
-	glBindTexture(type, 0);
+void Texture::unbind() {
+	glBindTextureUnit(slot, 0);
 }
 
-void Texture::Delete() {
+void Texture::create(GLenum _type, int _slot) {
+	type = _type;
+	slot = _slot;
+	glCreateTextures(type, 1, &ID);
+	bind();
+}
+
+void Texture::del() {
 	glDeleteTextures(1, &ID);
 }
+
 
 
 TextureArray::TextureArray(int slot, std::string directory, int start, int stop, std::string path) {
@@ -93,7 +97,7 @@ TextureArray::TextureArray(int slot, std::string directory, int start, int stop,
 
 	glTextureParameterf(ID, GL_TEXTURE_MAX_ANISOTROPY, 16.0f);
 
-	glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+	// glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
 }
 
 void TextureArray::TexUnit(Shader& shader, const char* uniform, GLuint unit) {
@@ -139,4 +143,29 @@ void Sampler::unbind() {
 
 void Sampler::del() {
 	glDeleteSamplers(1, &ID);
+}
+
+void Framebuffer::bindTexture(Texture &texture) {
+	// bind();
+	glNamedFramebufferTexture(ID, GL_DEPTH_ATTACHMENT, texture.ID, 0);
+
+	// glDrawBuffer(GL_NONE);
+	// glReadBuffer(GL_NONE);
+	// unbind();
+}
+
+void Framebuffer::bind() {
+	glBindFramebuffer(GL_FRAMEBUFFER, ID);
+}
+
+void Framebuffer::unbind() {
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void Framebuffer::create() {
+	glCreateFramebuffers(1, &ID);
+}
+
+void Framebuffer::del() {
+	glDeleteFramebuffers(1, &ID);
 }

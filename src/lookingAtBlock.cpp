@@ -251,10 +251,10 @@ void HighlightCursor::createHighlightVAO() {
     EBO1.Delete();
 }
 
-void HighlightCursor::renderCursor() {
+void HighlightCursor::renderCursor(glm::dmat4 cameraMatrix) {
     shaderProgramHighlight.Activate();
 
-    camera.matrix(90.0, 0.001, 512.0, shaderProgramHighlight, "cameraMatrix");
+    glUniformMatrix4fv(locCameraMatrix, 1, GL_FALSE, glm::value_ptr(glm::mat4(cameraMatrix)));
     glUniform3fv(locPos, 1, &glm::vec3(crntLookingAtBlock.blockPos)[0]);
     glUniform3fv(locCamPos, 1, &glm::vec3(camera.Position)[0]);
 

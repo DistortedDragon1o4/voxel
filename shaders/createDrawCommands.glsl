@@ -23,6 +23,7 @@ layout (binding = 0, std430) buffer DrawCommandBufferData {
 
 layout (binding = 1, std430) buffer ChunkViewableBufferData {
 	uint drawCount;
+	uint drawCountShadow;
 	uint data[];
 } chunkViewableBufferData;
 
@@ -34,8 +35,12 @@ void main() {
 	uint chunkIndex = (gl_WorkGroupID.x * 8) + gl_LocalInvocationID.x;
 
 	int crntIndex = -1;
-	if (chunkViewableBufferData.data[chunkIndex] == 1 && memoryRegister.unit[chunkIndex].size > 0)
+	if (((chunkViewableBufferData.data[chunkIndex] & 1) == 1) && (memoryRegister.unit[chunkIndex].size > 0))
 		crntIndex = int(atomicAdd(chunkViewableBufferData.drawCount, 1));
+
+	int crntIndexShadow = -1;
+	if (((chunkViewableBufferData.data[chunkIndex] >> 1) == 1) && (memoryRegister.unit[chunkIndex].size > 0))
+		crntIndexShadow = int(atomicAdd(chunkViewableBufferData.drawCountShadow, 1));
 
 	if (crntIndex != -1) {
 		DrawCommand crntCommand;
@@ -45,5 +50,15 @@ void main() {
 		crntCommand.baseInstance = chunkIndex;
 
 		drawCommandBufferData.command[crntIndex] = crntCommand;
+	}
+
+	if (crntIndexShadow != -1) {
+		DrawCommand crntCommand;
+		crntCommand.count = 6 * (memoryRegister.unit[chunkIndex].size / 32);
+		crntCommand.instanceCount = 1;
+		crntCommand.baseVertex = 0;
+		crntCommand.baseInstance = chunkIndex;
+
+		drawCommandBufferData.command[crntIndex + (gl_NumWorkGroups.x * gl_WorkGroupSize.x)] = crntCommand;
 	}
 }

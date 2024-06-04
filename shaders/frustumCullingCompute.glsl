@@ -13,6 +13,7 @@ struct MemRegUnit {
 };
 layout (binding = 1, std430) buffer ChunkViewableBufferData {
 	uint drawCount;
+	uint drawCountShadow;
 	uint data[];
 } chunkViewableBufferData;
 
@@ -23,14 +24,34 @@ layout (binding = 2, std430) buffer MemoryRegister {
 uniform vec3 camPos;
 uniform mat4 cameraMatrix;
 
-uint isInsideViewFrustum(ivec3 chunkID) {
+uniform mat4 lightSpaceMatrix0;
+uniform mat4 lightSpaceMatrix1;
+uniform mat4 lightSpaceMatrix2;
+uniform mat4 lightSpaceMatrix3;
+
+uint isInsideViewFrustum(ivec3 chunkID, mat4 matrix) {
 	vec3 chunkBaseCoords = chunkID * CHUNK_SIZE;
 
 	for (int i = 0; i < 8; i++) {
 		vec3 crntCoordsOffset = vec3(float(i >> 2), float((i >> 1) & 1), float(i & 1));
 		vec3 crntVertCoords = chunkBaseCoords + (CHUNK_SIZE * crntCoordsOffset) - camPos;
 
-		vec4 clipSpacePos = cameraMatrix * vec4(crntVertCoords, 1.0);
+		vec4 clipSpacePos = matrix * vec4(crntVertCoords, 1.0);
+
+		if ((abs(clipSpacePos.x) <= clipSpacePos.w && abs(clipSpacePos.y) <= clipSpacePos.w && abs(clipSpacePos.z) <= clipSpacePos.w) || (distance(crntVertCoords, vec3(0.0, 0.0, 0.0)) <= CHUNK_SIZE))
+			return 1;
+	}
+	return 0;
+}
+
+uint isInsideViewFrustum2(ivec3 chunkID, mat4 matrix) {
+	vec3 chunkBaseCoords = chunkID * CHUNK_SIZE;
+
+	for (int i = 0; i < 8; i++) {
+		vec3 crntCoordsOffset = vec3(float(i >> 2), float((i >> 1) & 1), float(i & 1));
+		vec3 crntVertCoords = chunkBaseCoords + (CHUNK_SIZE * crntCoordsOffset);
+
+		vec4 clipSpacePos = matrix * vec4(crntVertCoords, 1.0);
 
 		if ((abs(clipSpacePos.x) <= clipSpacePos.w && abs(clipSpacePos.y) <= clipSpacePos.w && abs(clipSpacePos.z) <= clipSpacePos.w) || (distance(crntVertCoords, vec3(0.0, 0.0, 0.0)) <= CHUNK_SIZE))
 			return 1;
@@ -43,7 +64,8 @@ void main() {
 
 	ivec3 chunkID = ivec3(memoryRegister.unit[chunkIndex].x, memoryRegister.unit[chunkIndex].y, memoryRegister.unit[chunkIndex].z);
 
-	chunkViewableBufferData.data[chunkIndex] = uint(chunkViewableBufferData.data[chunkIndex] & isInsideViewFrustum(chunkID));
+	chunkViewableBufferData.data[chunkIndex] = (((uint(chunkViewableBufferData.data[chunkIndex] & isInsideViewFrustum2(chunkID, lightSpaceMatrix3))) | (uint(chunkViewableBufferData.data[chunkIndex] & isInsideViewFrustum2(chunkID, lightSpaceMatrix2))) | (uint(chunkViewableBufferData.data[chunkIndex] & isInsideViewFrustum2(chunkID, lightSpaceMatrix1))) | (uint(chunkViewableBufferData.data[chunkIndex] & isInsideViewFrustum2(chunkID, lightSpaceMatrix0)))) << 1) + (uint(chunkViewableBufferData.data[chunkIndex] & isInsideViewFrustum(chunkID, cameraMatrix)));
 
 	chunkViewableBufferData.drawCount = 0;
+	chunkViewableBufferData.drawCountShadow = 0;
 }

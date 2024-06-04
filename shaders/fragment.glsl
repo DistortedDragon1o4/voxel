@@ -22,18 +22,29 @@ in vec3 crntCoord;
 in vec4 ambientOcc;
 in vec2 ambientOccPos;
 
+in vec3 worldSpaceCoords;
+
 out vec4 FragColor;
 
 
 
 uniform sampler2DArray array;
+uniform sampler2DArray shadowMap;
+
+uniform vec3 camPos;
 uniform vec3 camDir;
 uniform vec3 sunDir;
 
+uniform mat4 lightSpaceMatrix0;
+uniform mat4 lightSpaceMatrix1;
+uniform mat4 lightSpaceMatrix2;
+uniform mat4 lightSpaceMatrix3;
 
 
 // DO NOT CHANGE
 int CHUNK_SIZE = 32;
+
+float SHADOW_DISTANCE = 25.0 * 2.0;
 
 float sunStrength = 0.0f;
 vec3 sunColor = vec3(0.9882f, 0.9450f, 0.8117f);
@@ -63,6 +74,35 @@ float limitPos(float x) {
 		return x;
 }
 
+vec3 spherical2cartesian(float r, float theta, float phi) {
+	return r * vec3(cos(theta) * cos(phi), sin(theta), cos(theta) * sin(phi));
+}
+
+float rand(vec3 co){
+    return (fract(sin(dot(co, vec3(12.9898, 78.233, 45.857))) * 43758.5453) - 0.5) * 2.0;
+}
+
+bool checkDepth(vec3 coords, mat4 matrix, float layer) {
+	vec4 lightSpaceCoords = matrix * vec4(coords, 1.0);
+
+	coords = lightSpaceCoords.xyz / lightSpaceCoords.w;
+	vec3 texCoords = (coords / 2.0) + 0.5;
+
+	float closestDepth = texture(shadowMap, vec3(texCoords.xy, layer)).r;
+	float crntDepth = texCoords.z;
+
+	return (crntDepth >= closestDepth + 0.00001) && (abs(coords.x) <= 1.0) && (abs(coords.y) <= 1.0) && (abs(coords.z) <= 1.0);
+}
+
+float sunLightIntensity(vec3 worldSpaceCoord) {
+	worldSpaceCoord = floor(worldSpaceCoord * 32) / 32;
+	worldSpaceCoord = worldSpaceCoord + (0.03125 * normal);
+
+	float spec = pow(clamp(dot(sunDir, normalize(reflect(worldSpaceCoords - camPos, normal))), 0.0, 1.0), 16);
+
+	return (checkDepth(worldSpaceCoord, lightSpaceMatrix0, 0.0) || checkDepth(worldSpaceCoord, lightSpaceMatrix1, 1.0) || checkDepth(worldSpaceCoord, lightSpaceMatrix2, 2.0) || checkDepth(worldSpaceCoord, lightSpaceMatrix3, 3.0)) ? 0.33 : (1.89 + spec);
+}
+
 float getAmbientOcc() {
 	float x1 = mix(ambientOcc.x, ambientOcc.y, smoothstep(0, 1, ambientOccPos.x));
 	float x2 = mix(ambientOcc.w, ambientOcc.z, smoothstep(0, 1, ambientOccPos.x));
@@ -71,10 +111,6 @@ float getAmbientOcc() {
 	float k = 1.0 - res;
 
 	return sqrt(1.0 - pow(k - 1.265, 8.0));
-}
-
-float rand(vec3 co){
-    return (fract(sin(dot(co, vec3(12.9898, 78.233, 45.857))) * 43758.5453) - 0.5) * 2.0;
 }
 
 vec3 getLighting(vec3 position) {
@@ -116,6 +152,7 @@ void main() {
 
 	// Sampling the texture
 	vec4 frag = texture(array, vec3(texCoord, blockID - 1));
+	// vec4 frag = vec4(vec3(texture(shadowMap, texCoord).r), 1.0);
 
 	// Discarding transparent stuff
 	if (frag.a < 0.1)
@@ -144,31 +181,38 @@ void main() {
 	vec3 moonLight;
 	float specularIntensity = 1.0f;
 
-	if (sunDir.y > -0.1) {
-		float sunIntensity = dot(normal, sunDir) * sunStrength;
-		sunIntensity = limitPos(sunIntensity);
-		sunLight = sunColor * sunIntensity;
-		specularIntensity *= limitPos(dot(-reflect(-sunDir, normal), camDir)) / 2.0f;
-	} else {
-		float sunIntensity = dot(normal, sunDir) * sunStrength;
-		sunIntensity = limitPos(sunIntensity);
-		float intensity = (1.0f / 0.2f) * limitPos(sunDir.y + 0.3f) * sunIntensity;
-		sunLight = sunColor * intensity;
-		specularIntensity *= limitPos(dot(-reflect(-sunDir, normal), camDir)) / 2.0f;
-	}
+	// if (sunDir.y > -0.1) {
+	// 	float sunIntensity = dot(normal, sunDir) * sunStrength;
+	// 	sunIntensity = limitPos(sunIntensity);
+	// 	sunLight = sunColor * sunIntensity;
+	// 	specularIntensity *= limitPos(dot(-reflect(-sunDir, normal), camDir)) / 2.0f;
+	// } else {
+	// 	float sunIntensity = dot(normal, sunDir) * sunStrength;
+	// 	sunIntensity = limitPos(sunIntensity);
+	// 	float intensity = (1.0f / 0.2f) * limitPos(sunDir.y + 0.3f) * sunIntensity;
+	// 	sunLight = sunColor * intensity;
+	// 	specularIntensity *= limitPos(dot(-reflect(-sunDir, normal), camDir)) / 2.0f;
+	// }
 
-	if (sunDir.y < 0.1) {
-		float moonIntensity = dot(normal, -sunDir) * moonStrength;
-		moonIntensity = limitPos(moonIntensity);
-		moonLight = moonColor * moonIntensity;
-		specularIntensity *= limitPos(dot(-reflect(sunDir, normal), camDir)) / 2.0f;
-	} else {
-		float moonIntensity = dot(normal, -sunDir) * moonStrength;
-		moonIntensity = limitPos(moonIntensity);
-		float intensity = (1.0f / 0.2f) * limitPos(-sunDir.y + 0.3f) * moonIntensity;
-		moonLight = moonColor * intensity;
-		specularIntensity *= limitPos(dot(-reflect(-sunDir, normal), camDir)) / 2.0f;
-	}
+	// if (sunDir.y < 0.1) {
+	// 	float moonIntensity = dot(normal, -sunDir) * moonStrength;
+	// 	moonIntensity = limitPos(moonIntensity);
+	// 	moonLight = moonColor * moonIntensity;
+	// 	specularIntensity *= limitPos(dot(-reflect(sunDir, normal), camDir)) / 2.0f;
+	// } else {
+	// 	float moonIntensity = dot(normal, -sunDir) * moonStrength;
+	// 	moonIntensity = limitPos(moonIntensity);
+	// 	float intensity = (1.0f / 0.2f) * limitPos(-sunDir.y + 0.3f) * moonIntensity;
+	// 	moonLight = moonColor * intensity;
+	// 	specularIntensity *= limitPos(dot(-reflect(-sunDir, normal), camDir)) / 2.0f;
+	// }
+
+	// if (distance(worldSpaceCoords, camPos) <= SHADOW_DISTANCE)
+		sunLight = sunColor * sunLightIntensity(worldSpaceCoords) * clamp(dot(sunDir, normal), 0.33, 1.0);
+	// else
+	// 	sunLight = sunColor * 1.89 * clamp(dot(sunDir, normal), 0.33, 1.0);
+
+	
 
 
 	vec3 light = (vec3(ambientLight) + blockLight + sunLight);

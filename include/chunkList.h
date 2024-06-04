@@ -124,11 +124,13 @@ struct HighlightCursor {
 		createHighlightVAO();
 		locPos = glGetUniformLocation(shaderProgramHighlight.ID, "Pos");
 		locCamPos = glGetUniformLocation(shaderProgramHighlight.ID, "camPos");
+		locCameraMatrix = glGetUniformLocation(shaderProgramHighlight.ID, "cameraMatrix");
 	};
 
 	Shader shaderProgramHighlight;
 	int locPos;
 	int locCamPos;
+	int locCameraMatrix;
 
 	Camera &camera;
 	RayCaster &rayCaster;
@@ -150,7 +152,7 @@ struct HighlightCursor {
 
 	void positionCursor();
 	void createHighlightVAO();
-	void renderCursor();
+	void renderCursor(glm::dmat4 cameraMatrix);
 };
 
 // A lot of work pending
@@ -221,12 +223,20 @@ struct BuddyMemoryAllocator {
 };
 
 struct Renderer {
-	Renderer(Shader &voxelShader, TextureArray &voxelBlockTextureArray, Camera &camera, WorldContainer &worldContainer, ChunkLighting &lighting, BlockDefs &blocks, std::string dir);
+	Renderer(Shader &voxelShader, TextureArray &voxelBlockTextureArray, Camera &camera, WorldContainer &worldContainer, ChunkLighting &lighting, BlockDefs &blocks, HighlightCursor &highlightCursor, std::string dir);
 
 	newVAO voxelWorldVertexArray;
 
 	Shader &voxelShader;
 	TextureArray &voxelBlockTextureArray;
+
+	Shader shadowMapShader;
+	Framebuffer shadowMapFBO;
+	Texture shadowMapDepthTexture;
+	int locLightSpaceMatrix0shadowMap;
+	int locLightSpaceMatrix1shadowMap;
+	int locLightSpaceMatrix2shadowMap;
+	int locLightSpaceMatrix3shadowMap;
 
 	BuddyMemoryAllocator memAllocator;
 
@@ -234,23 +244,41 @@ struct Renderer {
 	int locCamPosFRC;
 	int locCameraMatrixPosFRC;
 
+	int locLightSpaceMatrix0FRC;
+	int locLightSpaceMatrix1FRC;
+	int locLightSpaceMatrix2FRC;
+	int locLightSpaceMatrix3FRC;
+
 	Compute createDrawCommands;
+
+	glm::dmat4 cameraMatrix;
+	// glm::mat4 lightSpaceMatrix;
+
+	std::array<glm::dmat4, 4> lightSpaceMatrix;
+	std::array<glm::dvec3, 4> lightPos;
 
 	ChunkLighting &lighting;
 
 	BlockDefs &blocks;
 
+	HighlightCursor &highlightCursor;
+
 	int locCamPos;
 	int locCamDir;
 	int locSunDir;
 	int locCameraMatrixPos;
+	int locLightSpaceMatrix0;
+	int locLightSpaceMatrix1;
+	int locLightSpaceMatrix2;
+	int locLightSpaceMatrix3;
+	int locLightPos;
 
     UnifiedGLBufferContainer commandBuffer;
 
     UnifiedGLBufferContainer chunkViewableBuffer;
 
     // Don't ask why this exists
-    glm::vec3 sunDir = glm::vec3(cos(std::numbers::pi / 3), sin(std::numbers::pi / 3), 0.0);
+    glm::vec3 sunDir = glm::vec3(cos(std::numbers::pi / 5) * cos(std::numbers::pi / 8), sin(std::numbers::pi / 5), cos(std::numbers::pi / 5) * sin(std::numbers::pi / 8));
 
 	Camera &camera;
 
@@ -263,7 +291,10 @@ struct Renderer {
 	void preRenderVoxelWorld();
 	void renderVoxelWorld();
 
-	void generateIBO();
+	void shadowMatrix();
+	void createCameraMatrix();
+
+	std::array<glm::dvec4, 8> getFrustumCorners(glm::dmat4 frustumMatrix);
 
 	bool run = true;
 };

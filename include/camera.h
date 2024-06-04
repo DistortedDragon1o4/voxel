@@ -40,8 +40,6 @@ struct Camera {
     double speed = 0.1;
     double sensitivity = 2.0;
 
-
-    void matrix(double FOVdeg, double nearPlane, double farPlane, Shader& shader, const char* uniform);
     void inputs(GLFWwindow* window);
 
     // this is temporary , ps make a proper inputs file

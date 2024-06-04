@@ -214,19 +214,7 @@ int main(int argc, char** argv) {
 		box.genBox();
 		box2.genBox();
 		boxDraw.generateMesh();
-
-		glViewport(0, 0, width, height);
-
-		glEnable(GL_CULL_FACE);
-		glEnable(GL_DEPTH_TEST);
-
-		glClearColor(0.2f, 0.5f, 0.9f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-
+	
 		auto crntTime = std::chrono::high_resolution_clock::now();
 
 		if (crntTime - prevTime >= std::chrono::milliseconds(250)) {
@@ -236,19 +224,12 @@ int main(int argc, char** argv) {
 		}
 		numFrames++;
 
-		// sunDir.x = cos(counter * increment);
-		// sunDir.y = sin(counter * increment);
-		// counter++;
-
-
-
 		voxel.camera.mouseInput(window);
 		voxel.camera.inputs(window);
 
 		voxel.renderer.regionCompileRoutine();
 
 		int newChunkCount = 0;
-
 
 		voxel.renderer.preRenderVoxelWorld();
 
@@ -261,16 +242,14 @@ int main(int argc, char** argv) {
 		voxel.renderer.renderVoxelWorld();
 		// glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-		glDisable(GL_CULL_FACE);
-
-		voxel.highlightCursor.renderCursor();
-
-		glDisable(GL_DEPTH_TEST);
-
 		shaderProgramHUD.Activate();
 		boxDraw.boxVAO.Bind();
 		glDrawElements(GL_TRIANGLES, boxDraw.EBOsize, GL_UNSIGNED_INT, 0);
 		boxDraw.boxVAO.Unbind();
+
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
 
 		ImGui::PushFont(programFont);
 

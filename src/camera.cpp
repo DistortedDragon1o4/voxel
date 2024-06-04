@@ -7,18 +7,6 @@ Camera::Camera(int &width, int &height, glm::dvec3 position) : width(width), hei
 	Position = position;
 }
 
-void Camera::matrix(double FOVdeg, double nearPlane, double farPlane, Shader& shader, const char* uniform) {
-	glm::dmat4 view = glm::dmat4(1.0f);
-	glm::dmat4 projection = glm::dmat4(1.0f);
-
-	view = glm::lookAt(glm::dvec3(0), glm::dvec3(0) + Orientation, Up);
-	projection = glm::perspective(glm::radians(FOVdeg), double(width) / double(height), nearPlane, farPlane);
-
-	cameraMatrix = projection * view;
-
-	// glUniformMatrix4fv(glGetUniformLocation(shader.ID, uniform), 1, GL_FALSE, glm::value_ptr(glm::mat4(cameraMatrix)));
-}
-
 void Camera::inputs(GLFWwindow* window) {
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
 		Position += speed * glm::normalize(glm::dvec3(Orientation.x, 0.0f, Orientation.z));
