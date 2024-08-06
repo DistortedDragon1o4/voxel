@@ -182,7 +182,7 @@ int main(int argc, char** argv) {
 	// glEnable(GL_BLEND);
 
 
-	VoxelGame voxel(width, height, glm::dvec3(7.0, 7.0, 7.0), dir);
+	VoxelGame voxel(width, height, glm::dvec3(7.0, 77.0, 7.0), dir);
 
 	voxel.camera.breakBlock = std::bind(&PlayerChunkInterface::breakBlock, &voxel.interface);
 	voxel.camera.placeBlock = std::bind(&PlayerChunkInterface::placeBlock, &voxel.interface);
@@ -277,9 +277,9 @@ int main(int argc, char** argv) {
 		ImGui::Begin("FPS and Coordinates HUD", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoBringToFrontOnFocus);
 		ImGui::TextColored(ImVec4(0.6, 0.986, 0.53, 1.0), "Voxel Test");
 		ImGui::Spacing();
-		std::string fpsString = "FPS: " + std::to_string(fps) + "	(" + std::to_string(1.0 / double(fps)) + "ms)";
+		std::string fpsString = "FPS: " + std::to_string(fps) + "	(" + std::to_string(1000.0 / double(fps)) + "ms)";
 		ImGui::Text("%s", fpsString.c_str());
-		std::string loadedChunkString = "Loaded Chunks: " + std::to_string(newChunkCount) + " / " + std::to_string(RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE);
+		std::string loadedChunkString = "Loaded Chunks: " + std::to_string(newChunkCount) + " / " + std::to_string(voxel.worldContainer.chunks.size());
 		ImGui::Text("%s", loadedChunkString.c_str());
 		std::string cpsString = "CPS: " + std::to_string(0);
 		ImGui::Text("%s", cpsString.c_str());

@@ -10,6 +10,8 @@ struct MemRegUnit {
 	int z;
 	int memoryIndex;
 	int size;							// In bytes (size of the mesh)
+	int lightMemoryIndex;
+	int lightSize;						// In bytes (size of the mesh)
 };
 layout (binding = 1, std430) buffer ChunkViewableBufferData {
 	uint drawCount;

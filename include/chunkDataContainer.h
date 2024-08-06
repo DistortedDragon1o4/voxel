@@ -5,21 +5,30 @@
 #include <vector>
 #include <queue>
 #include <bitset>
-#include <VAO.h>
-#include <coordinateContainers.h>
+#include "VAO.h"
+#include "coordinateContainers.h"
 
 #define NUM_BLOCKS 6
 #define NUM_TEXTURES 8
-#define RENDER_DISTANCE 12
+// #define RENDER_DISTANCE 16
 #define CHUNK_SIZE 32
+
+#define REGION_SIZE 16
 
 #define BUFFER_OFFSET(offset) (static_cast<char*>(0) + (offset))
 
 #define ALLOC_1MB_OF_VERTICES 131072
 
 struct ChunkLightContainer {
-    void clear() {for(unsigned int &i : data) i = 0;};
-    std::array<unsigned int, (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)> data;
+    // void clear() {for(unsigned int &i : data) i = 0;};
+    // std::array<unsigned int, (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)> data;
+
+    void init() {data = std::vector<unsigned int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2));}
+    void clear() {data.clear();}
+    bool isEmpty = true;
+    std::vector<unsigned int> data;
+
+    void compress(std::vector<unsigned int> &compressedData);
 };
 
 struct Layer {
@@ -39,6 +48,8 @@ struct ChunkData {
     void clear();
     void raw(std::vector<short> &rawBlockData);
 
+    int lodLevel = 0;
+
     bool isSingleBlock = true;
     short theBlock = 0;
     std::vector<Layer> layerData;
@@ -48,18 +59,21 @@ struct ChunkData {
     void setBlockAtCoords(const BlockCoords coords, const short block);
     void setBlockAtCoords(const int _x, const int _y, const int _z, const short block);
 
+    short blockAtCoords(const BlockCoords coords, const int LODlevel);
+    short blockAtCoords(const int _x, const int _y, const int _z, const int LODlevel);
+
     void compressChunk();
 };
 
 struct ChunkDataContainer {
+    unsigned int chunkType = 1;
+
 	// stores the blockID of each block in the chunk
-	// std::vector<short> chunkData;
     ChunkData chunkData;
 	
     std::vector<unsigned int> mesh;
 
     ChunkLightContainer lightData;
-    // std::queue<LightUpdateInstruction> lightUpdateInstructions;
     std::vector<LightUpdateInstruction> lightUpdateInstructions;
     std::array<bool, CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE> chunkLightDataBFSvisited = {0};
     bool uploadLightAnyway = false;
@@ -68,30 +82,34 @@ struct ChunkDataContainer {
 	int meshSize = 0;
     bool reUploadMesh = false;
 
+    bool reUploadLight = false;
+
     std::array<int, 27> neighbouringChunkIndices = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 
 	ChunkCoords chunkID;
-	float distance;
+	float distance = 0.0;
+    float euclideanDistSquared = 0.0;
 
-	bool emptyChunk = 1;
-	bool unCompiledChunk = 1;
-	bool unGeneratedChunk = 1;
-	bool renderlck = 0;
-	bool forUpdate = 0;
+    bool contentsAreUseless = false;
+
+	bool emptyChunk = true;
+	bool unCompiledChunk = true;
+	bool unGeneratedChunk = true;
+    bool lodRecompilation = false;
+	// bool renderlck = 0;
+	bool forUpdate = false;
 
     bool meshLivesOnGPU = false;
+    bool lightingLivesOnGPU = false;
 
-    bool inMeshingBFSqueue = false;
+    bool meshIsUseless = false;
+    bool lightingIsUseless = false;
+};
 
-    bool isSingleBlock = false;
-    short theBlock = 0;
-
-    // short blockAtCoords(const BlockCoords coords);
-    // short blockAtCoords(const int _x, const int _y, const int _z);
-    // void setBlockAtCoords(const BlockCoords coords, const short block);
-    // void setBlockAtCoords(const int _x, const int _y, const int _z, const short block);
-
-    // void compressChunk();
+struct MiniChunkDataContainer {
+    ChunkData chunkData;
+    ChunkLightContainer lightData;
+    ChunkCoords chunkID;
 };
 
 

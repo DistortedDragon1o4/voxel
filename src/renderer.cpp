@@ -6,11 +6,11 @@
 Renderer::Renderer(Shader &voxelShader, TextureArray &voxelBlockTextureArray, Camera &camera, WorldContainer &worldContainer, ChunkLighting &lighting, BlockDefs &blocks, std::string dir) :
 	voxelShader(voxelShader),
 	voxelBlockTextureArray(voxelBlockTextureArray),
-	memAllocator(64 * 1024 * 1024, 16),
+	worldContainer(worldContainer),
+	memAllocator(256 * 1024 * 1024, 16, worldContainer.chunks.size()),
 	frustumCuller(dir + "/shaders/frustumCullingCompute.glsl"),
 	createDrawCommands(dir + "/shaders/createDrawCommands.glsl"),
 	camera(camera),
-	worldContainer(worldContainer),
 	lighting(lighting),
 	blocks(blocks) {
 
@@ -34,12 +34,12 @@ Renderer::Renderer(Shader &voxelShader, TextureArray &voxelBlockTextureArray, Ca
 		locCameraMatrixPos = glGetUniformLocation(voxelShader.ID, "cameraMatrix");
 
 		commandBuffer.create();
-		commandBuffer.allocate(RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE * sizeof(DrawCommandContainer), GL_DYNAMIC_STORAGE_BIT);
+		commandBuffer.allocate(worldContainer.chunks.size() * sizeof(DrawCommandContainer), GL_DYNAMIC_STORAGE_BIT);
 		commandBuffer.bindBufferBase(GL_SHADER_STORAGE_BUFFER, 0);
 
 		chunkViewableBuffer.create();
-		chunkViewableBuffer.allocate((RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE * sizeof(unsigned int)) + sizeof(unsigned int), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
-		chunkViewableBuffer.map(sizeof(unsigned int), RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE * sizeof(unsigned int), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
+		chunkViewableBuffer.allocate((worldContainer.chunks.size() * sizeof(unsigned int)) + sizeof(unsigned int), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
+		chunkViewableBuffer.map(sizeof(unsigned int), worldContainer.chunks.size() * sizeof(unsigned int), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
 		chunkViewableBuffer.bindBufferBase(GL_SHADER_STORAGE_BUFFER, 1);
 
 		locCamPosFRC = glGetUniformLocation(frustumCuller.ID, "camPos");
@@ -51,27 +51,36 @@ Renderer::Renderer(Shader &voxelShader, TextureArray &voxelBlockTextureArray, Ca
 
 void Renderer::regionCompileRoutine() {
 
-	std::array<unsigned int, RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE> chunkVisibleArr = {0};
+	std::vector<unsigned int> chunkVisibleArr = std::vector<unsigned int>(worldContainer.chunks.size());
 
 	bool registerModified = false;
 	bool memoryBlockModified = false;
-	for (int i = 0; i < RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE; i++) {
+	for (int i = 0; i < worldContainer.chunks.size(); i++) {
 		ChunkDataContainer &chunk = worldContainer.chunks[i];
 		if (chunk.reUploadMesh) {
 			registerModified = true;
 			memAllocator.deallocate(chunk);
 			memoryBlockModified = memAllocator.allocate(chunk);
+			chunk.meshIsUseless = true;
 		}
-		chunkVisibleArr[i] = !chunk.unCompiledChunk && (chunk.meshSize > 0);
+		if (chunk.reUploadLight) {
+			registerModified = true;
+			memAllocator.lightDeallocate(chunk);
+			memoryBlockModified = memAllocator.lightAllocate(chunk);
+			chunk.lightingIsUseless = true;
+		}
+		chunkVisibleArr[i] = (!chunk.unCompiledChunk || chunk.lodRecompilation) && (chunk.meshSize > 0);
+		if (chunk.meshIsUseless && chunk.lightingIsUseless && !chunk.unCompiledChunk && chunk.chunkType > 0 && chunk.lightUpdateInstructions.size() == 0)
+			chunk.contentsAreUseless = true;
 	}
 	if (registerModified) {
-		glFlushMappedNamedBufferRange(memAllocator.memoryRegisterBuffer.ID, 0, sizeof(memAllocator.memoryRegister));
+		glFlushMappedNamedBufferRange(memAllocator.memoryRegisterBuffer.ID, 0, sizeof(MemRegUnit) * memAllocator.memoryRegister.size());
 	}
 	if (memoryBlockModified)
 		glFlushMappedNamedBufferRange(memAllocator.memoryBlock.ID, 0, memAllocator.totalMemoryBlockSize);
 
-	std::memcpy(chunkViewableBuffer.persistentMappedPtr, &chunkVisibleArr, sizeof(chunkVisibleArr));
-	glFlushMappedNamedBufferRange(chunkViewableBuffer.ID, 0, RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE * sizeof(unsigned int));
+	std::memcpy(chunkViewableBuffer.persistentMappedPtr, chunkVisibleArr.data(), chunkVisibleArr.size() * sizeof(unsigned int));
+	glFlushMappedNamedBufferRange(chunkViewableBuffer.ID, 0, worldContainer.chunks.size() * sizeof(unsigned int));
 	
 	chunkVisibleArrSync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
@@ -82,17 +91,17 @@ void Renderer::regionCompileRoutine() {
 }
 
 void Renderer::preRenderVoxelWorld() {
-	camera.matrix(90.0, 0.001, 512.0, voxelShader, "cameraMatrix");
+	camera.matrix(90.0, 0.001, 1024.0);
 
 	frustumCuller.Activate();
 
 	glUniform3fv(locCamPosFRC, 1, &glm::vec3(camera.oldPosition)[0]);
 	glUniformMatrix4fv(locCameraMatrixPosFRC, 1, GL_FALSE, glm::value_ptr(glm::mat4(camera.cameraMatrix)));
 
-	frustumCuller.Dispatch(RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE / 8, 1, 1);
+	frustumCuller.Dispatch((worldContainer.chunks.size() + 7) / 8, 1, 1);
 
 	createDrawCommands.Activate();
-	createDrawCommands.Dispatch(RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE / 8, 1, 1);
+	createDrawCommands.Dispatch((worldContainer.chunks.size() + 7) / 8, 1, 1);
 }
 
 void Renderer::renderVoxelWorld() {
@@ -111,7 +120,7 @@ void Renderer::renderVoxelWorld() {
     commandBuffer.bind(GL_DRAW_INDIRECT_BUFFER);
 	chunkViewableBuffer.bind(GL_PARAMETER_BUFFER);
 
-	glMultiDrawArraysIndirectCount(GL_TRIANGLES, (void*)0, 0, RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE, 0);
+	glMultiDrawArraysIndirectCount(GL_TRIANGLES, (void*)0, 0, worldContainer.chunks.size(), 0);
 
     voxelWorldVertexArray.unbind();
     commandBuffer.unbind(GL_DRAW_INDIRECT_BUFFER);

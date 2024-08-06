@@ -27,5 +27,5 @@ public:
     void generateMesh();
     void uploadTexture();
     std::vector<GUIItem> list;
-    int EBOsize;
+    int EBOsize = 0;
 };

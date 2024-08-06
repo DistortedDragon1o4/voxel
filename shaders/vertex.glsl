@@ -6,6 +6,8 @@ struct MemRegUnit {
 	int z;
 	int memoryIndex;
 	int size;							// In bytes (size of the mesh)
+	int lightMemoryIndex;
+	int lightSize;						// In bytes (size of the mesh)
 };
 
 layout (binding = 2, std430) buffer MemoryRegister {
@@ -73,8 +75,11 @@ void main() {
 
 	// Stuff left to do to fix precision issues
 
+	int lodLevel = int((dataBlock2 >> 14) & 0xf);
+
 	const int coordMask = 0x3ff;
 	ivec3 coords = ivec3(((dataBlock1 >> 20) & coordMask), ((dataBlock1 >> 10) & coordMask), (dataBlock1 & coordMask));
+	coords *= (1 << lodLevel);
 	vec3 mesh = vec3(float(coords.x / 16.0) + (chunkID.x * CHUNK_SIZE), float(coords.y / 16.0) + (chunkID.y * CHUNK_SIZE), float(coords.z / 16.0) + (chunkID.z * CHUNK_SIZE));
 	mesh = mesh - camPos;
 	gl_Position = vec4(cameraMatrix * vec4(mesh, 1.0));
@@ -87,19 +92,21 @@ void main() {
 	const int texMask = 0x3ff;
 	int texMap = (dataBlock2 >> 4) & texMask;
 	ivec2 texInt = ivec2(texMap >> 5, texMap & 0x1f);
-	texCoord = vec2(float(texInt.x / 16.0), float(texInt.y / 16.0));
+	texCoord = float(1 << lodLevel) * vec2(float(texInt.x / 16.0), float(texInt.y / 16.0));
 
-	blockID = int(dataBlock2 >> 14);
+	blockID = int(dataBlock2 >> 18);
 
 	const int normalMask = 0x7;
 	int normalIdx = (dataBlock2 >> 1) & normalMask;
 	normal = normalArr[normalIdx];
 
 	if (length != 0) {
-		if (normalIdx == 2 || normalIdx == 3)
+		if (normalIdx == 2 || normalIdx == 3) {
 			texCoord.x *= multiplier;
-		if (normalIdx == 0 || normalIdx == 1)
+		}
+		if (normalIdx == 0 || normalIdx == 1) {
 			texCoord.y *= multiplier;
+		}
 	}
 
 	vec4 ambientOccLocal;
@@ -112,7 +119,7 @@ void main() {
 
 	ambientOccPos = ambientOccArr[indices[gl_VertexID % 6] % 4];
 
-	crntCoord = vec3(coords) / 16.0;
+	crntCoord = float(1 << lodLevel) * vec3(coords) / 16.0;
 
 	ERROR = memoryBlock.v[memoryRegister.unit[gl_BaseInstance].memoryIndex / 4];
 }

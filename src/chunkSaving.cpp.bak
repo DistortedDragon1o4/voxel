@@ -1,0 +1,398 @@
+#include "chunkDataContainer.h"
+#include "chunkGenerator.h"
+#include "fastFloat.h"
+#include <chunkList.h>
+#include <string>
+#include <fstream>
+#include <sys/ucontext.h>
+
+long ChunkSaver::coordsToKey(const ChunkCoords coords) {
+    long result = (fastFloat::mod(coords.x, REGION_SIZE * (3 + (RENDER_DISTANCE / REGION_SIZE))) * 4 * RENDER_DISTANCE * RENDER_DISTANCE) + (fastFloat::mod(coords.y, REGION_SIZE * (3 + (RENDER_DISTANCE / REGION_SIZE))) * 2 * RENDER_DISTANCE) + fastFloat::mod(coords.z, REGION_SIZE * (3 + (RENDER_DISTANCE / REGION_SIZE)));
+    return result;
+}
+
+int ChunkSaver::getIndex(const ChunkCoords chunkCoord) {
+    int index;
+    try {
+        index = coordToIndexMap.at(coordsToKey(chunkCoord));
+    } catch (const std::out_of_range& oor) {
+        //std::cerr << "Out of Range error: " << oor.what() << "\n";
+        return -1;
+    }
+    return index;
+}
+
+void ChunkSaver::regionHeaderToCharArr(RegionFileHeader &header, std::array<char, 12 + (4 * REGION_SIZE * REGION_SIZE * REGION_SIZE)> &headerCharArr) {
+	for (int i = 0; i < 4; i++) {
+		headerCharArr.at(i) = (header.magic >> (8 * (3 - i))) & 0xff;
+	}
+	for (int i = 4; i < 8; i++) {
+		headerCharArr.at(i) = (header.version >> (8 * (7 - i))) & 0xff;
+	}
+	for (int i = 8; i < 12; i++) {
+		headerCharArr.at(i) = (header.totalSectors >> (8 * (11 - i))) & 0xff;
+	}
+	for (int i = 12; i < 12 + (4 * REGION_SIZE * REGION_SIZE * REGION_SIZE); i++) {
+		headerCharArr.at(i) = (header.chunkIndices.at((i - 12) >> 2) >> (8 * (3 - (i & 0xf)))) & 0xff;
+	}
+}
+
+void ChunkSaver::parseRegionHeader(RegionFileStreamContainer &fileStream) {
+	std::array<char, 12 + sizeof(fileStream.header.chunkIndices)> headerCharArr;
+	fileStream.regionFile.seekg(0, std::ios::beg);
+	fileStream.regionFile.read((char*)&headerCharArr, 12 + sizeof(fileStream.header.chunkIndices));
+	for (int i = 0; i < 4; i++) {
+		fileStream.header.magic |= headerCharArr.at(i) << (8 * (3 - i));
+	}
+	for (int i = 4; i < 8; i++) {
+		fileStream.header.version |= headerCharArr.at(i) << (8 * ((7 - i)));
+	}
+	for (int i = 8; i < 12; i++) {
+		fileStream.header.totalSectors |= headerCharArr.at(i) << (8 * ((11 - i)));
+	}
+	for (int i = 12; i < 12 + sizeof(fileStream.header.chunkIndices); i++) {
+		fileStream.header.chunkIndices.at((i - 12) >> 2) |= headerCharArr.at(i) << (8 * (3 - (i & 0xf)));
+	}
+	// std::cout << "diapers2\n";
+	for (int i = 0; i < REGION_SIZE * REGION_SIZE * REGION_SIZE; i++) {
+		fileStream.regionFile.seekg(sizeof(fileStream.header) + (fileStream.header.chunkIndices.at(i) * SECTOR_SIZE), std::ios::beg);
+		std::array<char, 4> dataSize;
+		fileStream.regionFile.read((char*)&dataSize, sizeof(unsigned int));
+		fileStream.header.chunkSizes.at(i) = bigEndianToInt(dataSize);
+	}
+	// std::cout << "diapers3\n";
+}
+
+void ChunkSaver::generateRegionFile(ChunkCoords regionCoords) {
+	std::string regionFileName = "c." + std::to_string(regionCoords.x) + "." + std::to_string(regionCoords.y) + "." + std::to_string(regionCoords.z) + ".vxr";
+
+	std::fstream regionFileStream(dir + "/saves/" + regionFileName, std::ios::out | std::ios::binary);
+
+	RegionFileHeader header {
+		.magic = 69420,
+		.version = 0,
+		.chunkIndices = std::array<int, REGION_SIZE * REGION_SIZE * REGION_SIZE> {0}
+	};
+	// for (int i = 0; i < header.chunkIndices.size(); i++)
+	// 	header.chunkIndices[i] = i;
+	for (auto &i : header.chunkIndices)
+		i = -1;
+
+	std::array<char, 12 + (4 * REGION_SIZE * REGION_SIZE * REGION_SIZE)> headerCharArr;
+
+	regionHeaderToCharArr(header, headerCharArr);
+	
+	regionFileStream.seekp(0, std::ios::beg);
+
+	regionFileStream.write((char*)&headerCharArr, sizeof(header));
+
+	regionFileStream.close();
+}
+
+RegionFileStreamContainer* ChunkSaver::loadRegionFile(ChunkCoords regionCoords) {
+	std::string regionFileName = "c." + std::to_string(regionCoords.x) + "." + std::to_string(regionCoords.y) + "." + std::to_string(regionCoords.z) + ".vxr";
+
+	std::cout << "sus 1 " << regionFileName << "\n";
+
+	regionFileLoading:
+		unsigned int leastTokenValue = 0xffffffff;
+		RegionFileStreamContainer *thatFileStream;
+
+		for (int i = 0; i < regionFileStreamPool.size(); i++) {
+			RegionFileStreamContainer &fileStream = regionFileStreamPool.at(i);
+			if (!fileStream.regionFile.is_open()) {
+				coordToIndexMap[coordsToKey(regionCoords)] = i;
+
+				if (!std::filesystem::exists(dir + "/saves/" + regionFileName))
+					generateRegionFile(regionCoords);
+
+				fileStream.regionFile.open(dir + "/saves/" + regionFileName, std::ios::in | std::ios::out | std::ios::binary);
+				// std::cout << "diapers4\n";
+				parseRegionHeader(fileStream);
+				fileStream.coordinates = regionCoords;
+				fileStream.accessToken = currentAccessToken;
+
+				// std::cout << regionFileStreamPool.size() << " " << i << "sus 3\n";
+
+				return &fileStream;
+			}
+			if (fileStream.accessToken <= leastTokenValue) {
+				leastTokenValue = fileStream.accessToken;
+				thatFileStream = &fileStream;
+			}
+		}
+
+		thatFileStream->regionFile.close();
+		coordToIndexMap.erase(coordsToKey(thatFileStream->coordinates));
+		// std::cout << "sus 2 " << regionFileName << "\n";
+		goto regionFileLoading;
+}
+
+RegionFileStreamContainer* ChunkSaver::getFileStreamObject(ChunkCoords regionCoords) {
+	int index = getIndex(regionCoords);
+
+	if (index != -1) {
+		regionFileStreamPool.at(index).accessToken = currentAccessToken;
+		return &regionFileStreamPool.at(index);
+	} else {
+		return loadRegionFile(regionCoords);
+	}
+}
+
+unsigned int ChunkSaver::bigEndianToInt(std::array<char, 4> &data) {
+	return (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+}
+
+unsigned int ChunkSaver::locateEmptySector(RegionFileStreamContainer &fileStream, unsigned int numSectors) {
+	unsigned int sectorCount = 0;
+	for (unsigned int i = 0; i < fileStream.header.totalSectors; i++) {
+		if (fileStream.sectorOccupancyTable.at(i) == true) {
+			std::array<char, 4> crntNumSectorsArr;
+			fileStream.regionFile.seekg(sizeof(RegionFileHeader) + (i * SECTOR_SIZE));
+			fileStream.regionFile.read((char*)&crntNumSectorsArr, sizeof(unsigned int));
+			unsigned int crntNumSectors = bigEndianToInt(crntNumSectorsArr);
+			sectorCount = 0;
+			i += crntNumSectors - 1;
+		} else {
+			sectorCount++;
+			if (sectorCount >= numSectors)
+				return i - sectorCount + 1;
+		}
+	}
+	return fileStream.header.totalSectors - sectorCount;
+}
+
+void ChunkSaver::writeChunkData(std::vector<char> &data, RegionFileStreamContainer &fileStream, unsigned int sectorIndex, unsigned int numSectors) {
+	for (int i = 0; i < numSectors; i++) {
+		if (i + sectorIndex < fileStream.header.totalSectors) {
+			fileStream.sectorOccupancyTable.at(i + sectorIndex) = true;
+		} else {
+			fileStream.sectorOccupancyTable.push_back(true);
+			fileStream.header.totalSectors++;
+		}
+	}
+
+	fileStream.regionFile.seekp(sizeof(RegionFileHeader) + (sectorIndex * SECTOR_SIZE));
+	fileStream.regionFile.write((char*)&data, sizeof(char) * data.size());
+}
+
+void ChunkSaver::chunkDataRLECompress(MiniChunkDataContainer &chunk, std::vector<char> &data) {
+	bool begin = true;
+	short lastBlock = 0;
+	for (int i = 0; i < CHUNK_SIZE; i++) {
+		for (int j = 0; j < CHUNK_SIZE; j++) {
+			for (int k = 0; k < CHUNK_SIZE; k++) {
+				if (begin) {
+					data.push_back((chunk.chunkData.blockAtCoords(j, i, k) >> 8) & 0xff);
+					data.push_back(chunk.chunkData.blockAtCoords(j, i, k) & 0xff);
+					data.push_back(0);
+					data.push_back(1);
+					lastBlock = chunk.chunkData.blockAtCoords(j, i, k);
+					begin = false;
+				} else {
+					short crntBlock = chunk.chunkData.blockAtCoords(j, i, k);
+					if (lastBlock == crntBlock) {
+						data.at(data.size() - 1)++;
+						data.at(data.size() - 2) += (data.at(data.size() - 1) == 0);
+					} else {
+						data.push_back((chunk.chunkData.blockAtCoords(j, i, k) >> 8) & 0xff);
+						data.push_back(chunk.chunkData.blockAtCoords(j, i, k) & 0xff);
+						data.push_back(0);
+						data.push_back(1);
+						lastBlock = crntBlock;
+					}
+				}
+			}
+		}
+	}
+}
+
+void ChunkSaver::lightDataRLECompress(MiniChunkDataContainer &chunk, std::vector<char> &data) {
+	bool begin = true;
+	unsigned int lastLightVal = 0;
+	for (int i = 0; i < CHUNK_SIZE + 2; i++) {
+		for (int j = 0; j < CHUNK_SIZE + 2; j++) {
+			for (int k = 0; k < CHUNK_SIZE + 2; k++) {
+				if (begin) {
+					data.push_back((chunk.lightData.data.at((j * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (i * (CHUNK_SIZE + 2)) + k) >> 24) & 0xff);
+					data.push_back((chunk.lightData.data.at((j * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (i * (CHUNK_SIZE + 2)) + k) >> 16) & 0xff);
+					data.push_back((chunk.lightData.data.at((j * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (i * (CHUNK_SIZE + 2)) + k) >> 8) & 0xff);
+					data.push_back(chunk.lightData.data.at((j * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (i * (CHUNK_SIZE + 2)) + k) & 0xff);
+					data.push_back(0);
+					data.push_back(0);
+					data.push_back(1);
+					lastLightVal = chunk.lightData.data.at((j * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (i * (CHUNK_SIZE + 2)) + k);
+					begin = false;
+				} else {
+					unsigned int crntLightVal = chunk.chunkData.blockAtCoords(j, i, k);
+					if (lastLightVal == crntLightVal) {
+						data.at(data.size() - 1)++;
+						data.at(data.size() - 2) += (data.at(data.size() - 1) == 0);
+						data.at(data.size() - 3) += (data.at(data.size() - 2) == 0 && data.at(data.size() - 1) == 0);
+					} else {
+						data.push_back((chunk.lightData.data.at((j * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (i * (CHUNK_SIZE + 2)) + k) >> 24) & 0xff);
+						data.push_back((chunk.lightData.data.at((j * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (i * (CHUNK_SIZE + 2)) + k) >> 16) & 0xff);
+						data.push_back((chunk.lightData.data.at((j * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (i * (CHUNK_SIZE + 2)) + k) >> 8) & 0xff);
+						data.push_back(chunk.lightData.data.at((j * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + (i * (CHUNK_SIZE + 2)) + k) & 0xff);
+						data.push_back(0);
+						data.push_back(0);
+						data.push_back(1);
+						lastLightVal = crntLightVal;
+					}
+				}
+			}
+		}
+	}
+}
+
+unsigned int ChunkSaver::compileFinalChunkData(MiniChunkDataContainer &chunk, std::vector<char> &data) {
+	std::vector<char> chunkDataCompressed;
+	std::vector<char> lightDataCompressed;
+
+	chunkDataRLECompress(chunk, chunkDataCompressed);
+	lightDataRLECompress(chunk, lightDataCompressed);
+
+	unsigned int numSectors = 0;
+	unsigned int sizeInBytes = 0;
+
+	unsigned int x = chunk.chunkID.x;
+	unsigned int y = chunk.chunkID.y;
+	unsigned int z = chunk.chunkID.z;
+
+	unsigned int chunkDataStart = 36;
+	unsigned int chunkDataSize = chunkDataCompressed.size();
+
+	unsigned int lightDataStart = chunkDataStart + chunkDataSize;
+	unsigned int lightDataSize = lightDataCompressed.size();
+
+	sizeInBytes = chunkDataStart + chunkDataSize + lightDataSize;
+	numSectors = ((sizeInBytes - 1) / SECTOR_SIZE) + 1;
+
+	std::vector<char> headerData = {
+		char((numSectors >> 24) & 0xff),
+		char((numSectors >> 16) & 0xff),
+		char((numSectors >> 8) & 0xff),
+		char(numSectors & 0xff),
+
+		char((sizeInBytes >> 24) & 0xff),
+		char((sizeInBytes >> 16) & 0xff),
+		char((sizeInBytes >> 8) & 0xff),
+		char(sizeInBytes & 0xff),
+
+		char((x >> 24) & 0xff),
+		char((x >> 16) & 0xff),
+		char((x >> 8) & 0xff),
+		char(x & 0xff),
+
+		char((y >> 24) & 0xff),
+		char((y >> 16) & 0xff),
+		char((y >> 8) & 0xff),
+		char(y & 0xff),
+
+		char((z >> 24) & 0xff),
+		char((z >> 16) & 0xff),
+		char((z >> 8) & 0xff),
+		char(z & 0xff),
+
+		char((chunkDataStart >> 24) & 0xff),
+		char((chunkDataStart >> 16) & 0xff),
+		char((chunkDataStart >> 8) & 0xff),
+		char(chunkDataStart & 0xff),
+
+		char((chunkDataSize >> 24) & 0xff),
+		char((chunkDataSize >> 16) & 0xff),
+		char((chunkDataSize >> 8) & 0xff),
+		char(chunkDataSize & 0xff),
+
+		char((lightDataStart >> 24) & 0xff),
+		char((lightDataStart >> 16) & 0xff),
+		char((lightDataStart >> 8) & 0xff),
+		char(lightDataStart & 0xff),
+
+		char((lightDataSize >> 24) & 0xff),
+		char((lightDataSize >> 16) & 0xff),
+		char((lightDataSize >> 8) & 0xff),
+		char(lightDataSize & 0xff)
+	};
+
+	data.clear();
+	data.insert(data.end(), headerData.begin(), headerData.end());
+	data.insert(data.end(), chunkDataCompressed.begin(), chunkDataCompressed.end());
+	data.insert(data.end(), lightDataCompressed.begin(), lightDataCompressed.end());
+
+	return numSectors;
+}
+
+void ChunkSaver::saveChunks() {
+	while (chunkSavingQueue.size() > 0) {
+		MiniChunkDataContainer chunk = chunkSavingQueue.front();
+		chunkSavingQueue.pop();
+
+		ChunkCoords regionCoords {
+			.x = chunk.chunkID.x - fastFloat::mod(chunk.chunkID.x, REGION_SIZE),
+			.y = chunk.chunkID.y - fastFloat::mod(chunk.chunkID.y, REGION_SIZE),
+			.z = chunk.chunkID.z - fastFloat::mod(chunk.chunkID.z, REGION_SIZE)
+		};
+
+		currentAccessToken++;
+
+		RegionFileStreamContainer* regionFile = getFileStreamObject(regionCoords);
+
+		int index = (fastFloat::mod(chunk.chunkID.x, REGION_SIZE) * REGION_SIZE * REGION_SIZE) + (fastFloat::mod(chunk.chunkID.y, REGION_SIZE) * REGION_SIZE) + fastFloat::mod(chunk.chunkID.z, REGION_SIZE);
+
+		// std::vector<char> chunkData;
+
+		// chunkDataRLECompress(chunk, chunkData);
+
+		std::cout << "diapers\n";
+
+		// unsigned int numSectors = 0;
+		// unsigned int sizeInBytes = 0;
+
+		// sizeInBytes = 8 + (sizeof(char) + chunkData.size());
+		// numSectors = ((sizeInBytes - 1) / SECTOR_SIZE) + 1;
+
+		// std::vector<char> data = {
+		// 	char((numSectors >> 24) & 0xff),
+		// 	char((numSectors >> 16) & 0xff),
+		// 	char((numSectors >> 8) & 0xff),
+		// 	char(numSectors & 0xff),
+		// 	char((sizeInBytes >> 24) & 0xff),
+		// 	char((sizeInBytes >> 16) & 0xff),
+		// 	char((sizeInBytes >> 8) & 0xff),
+		// 	char(sizeInBytes & 0xff)
+		// };
+
+		// data.insert(data.end(), chunkData.begin(), chunkData.end());
+
+		// std::cout << chunkData.size() << " i runxx\n";
+
+		// unsigned int sectorIndex = locateEmptySector(*regionFile, numSectors);
+
+		// std::cout << sectorIndex << " i run\n";
+
+		// writeChunkData(data, *regionFile, sectorIndex, numSectors);
+
+		std::vector<char> data;
+
+		unsigned int numSectors = compileFinalChunkData(chunk, data);
+
+		unsigned int sectorIndex = regionFile->header.chunkIndices.at(index);
+
+		if (sectorIndex == -1) {
+			sectorIndex = locateEmptySector(*regionFile, numSectors);
+		} else {
+			if (numSectors > regionFile->header.chunkSizes.at(index)) {
+				for (int i = 0; i < regionFile->header.chunkSizes.at(index); i++) {
+					regionFile->sectorOccupancyTable.at(sectorIndex + i) = false;
+				}
+				sectorIndex = locateEmptySector(*regionFile, numSectors);
+			}
+		}
+
+		regionFile->header.chunkIndices.at(index) = sectorIndex;
+		regionFile->header.chunkSizes.at(index) = numSectors;
+
+		writeChunkData(data, *regionFile, sectorIndex, numSectors);
+	}
+}

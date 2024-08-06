@@ -29,6 +29,8 @@ struct Camera {
     glm::dvec3 Up = glm::dvec3(0.0, 1.0, 0.0);
     glm::dvec2 sphericalOrientation = glm::dvec2(0.0, 0.0); // spherical coordinate system and radius is 1
 
+    double FOVmultiplier = 1.0;
+
     glm::dmat4 cameraMatrix;
 
     int &width;
@@ -41,7 +43,7 @@ struct Camera {
     double sensitivity = 2.0;
 
 
-    void matrix(double FOVdeg, double nearPlane, double farPlane, Shader& shader, const char* uniform);
+    void matrix(double FOVdeg, double nearPlane, double farPlane);
     void inputs(GLFWwindow* window);
 
     // this is temporary , ps make a proper inputs file

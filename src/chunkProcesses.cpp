@@ -2,6 +2,7 @@
 #include "buffers.h"
 #include "chunkDataContainer.h"
 #include "chunkGenerator.h"
+#include "coordinateContainers.h"
 #include "fastFloat.h"
 #include "glm/geometric.hpp"
 #include "glm/trigonometric.hpp"
@@ -17,10 +18,10 @@ VoxelGame::VoxelGame(int &width, int &height, const glm::dvec3 position, const s
 	voxelBlockTextureArray(0, "blocks/", 1, NUM_TEXTURES, dir + "/"),
 	camera(width, height, position),
     blocks(dir),
-	worldContainer(camera),
+	worldContainer(simulationRadius, simulationHeight, renderRadius, renderHeight),
 	rayCaster(worldContainer),
 	highlightCursor(rayCaster, camera, dir),
-	processManager(worldContainer, blocks, camera),
+	processManager(worldContainer, blocks, camera, dir),
 	interface(worldContainer, processManager, highlightCursor),
 	renderer(voxelShader, voxelBlockTextureArray, camera, worldContainer, processManager.lighting, blocks, dir) {
 		voxelBlockTextureArray.TexUnit(voxelShader, "array", 0);
@@ -32,177 +33,255 @@ VoxelGame::~VoxelGame() {
 	voxelBlockTextureArray.Delete();
 }
 
-ChunkProcessManager::ChunkProcessManager(WorldContainer &worldContainer, BlockDefs &blocks, Camera &camera) :
+ChunkProcessManager::ChunkProcessManager(WorldContainer &worldContainer, BlockDefs &blocks, Camera &camera, const std::string dir) :
 	worldContainer(worldContainer),
 	blocks(blocks),
 	builder(worldContainer, blocks),
 	lighting(worldContainer, blocks),
+    // saver(dir),
 	camera(camera) {}
-
-
-bool WorldContainer::isEdgeChunk(int coordX, int coordY, int coordZ) {
-    if (coordX - fastFloat::fastFloor(camera.Position.x / CHUNK_SIZE) == RENDER_DISTANCE / 2 - 1 || fastFloat::fastFloor(camera.Position.x / CHUNK_SIZE) - coordX == RENDER_DISTANCE / 2 || coordY - fastFloat::fastFloor(camera.Position.y / CHUNK_SIZE) == RENDER_DISTANCE / 2 - 1 || fastFloat::fastFloor(camera.Position.y / CHUNK_SIZE) - coordY == RENDER_DISTANCE / 2 || coordZ - fastFloat::fastFloor(camera.Position.z / CHUNK_SIZE) == RENDER_DISTANCE / 2 - 1 || fastFloat::fastFloor(camera.Position.z / CHUNK_SIZE) - coordZ == RENDER_DISTANCE / 2) {
-        return 1;
-    }
-    return 0;
-}
 
 void ChunkProcessManager::chunkPopulator() {
     while (run == 1) {
-    	ChunkCoords cameraChunk;
-        cameraChunk.x = int(floor(camera.Position.x / CHUNK_SIZE)) - (RENDER_DISTANCE / 2);
-        cameraChunk.y = int(floor(camera.Position.y / CHUNK_SIZE)) - (RENDER_DISTANCE / 2);
-        cameraChunk.z = int(floor(camera.Position.z / CHUNK_SIZE)) - (RENDER_DISTANCE / 2);
-        if (firstRun == 0) {
-        	int loadedChunkCoord[RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE][3];
-            int offsetX = fastFloat::fastFloor(camera.Position.x / CHUNK_SIZE) - (RENDER_DISTANCE / 2);
-            int offsetY = fastFloat::fastFloor(camera.Position.y / CHUNK_SIZE) - (RENDER_DISTANCE / 2);
-            int offsetZ = fastFloat::fastFloor(camera.Position.z / CHUNK_SIZE) - (RENDER_DISTANCE / 2);
-            for (int i = 0; i < RENDER_DISTANCE; i++) {
-                for (int j = 0; j < RENDER_DISTANCE; j++) {
-                    for (int k = 0; k < RENDER_DISTANCE; k++) {
-                        loadedChunkCoord[(i * RENDER_DISTANCE * RENDER_DISTANCE) + (j * RENDER_DISTANCE) + k][0] = i + offsetX;
-                        loadedChunkCoord[(i * RENDER_DISTANCE * RENDER_DISTANCE) + (j * RENDER_DISTANCE) + k][1] = j + offsetY;
-                        loadedChunkCoord[(i * RENDER_DISTANCE * RENDER_DISTANCE) + (j * RENDER_DISTANCE) + k][2] = k + offsetZ;
-                    }
-                }
-            }
-            for (int i = 0; i < (RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE); i++) {
-            	ChunkDataContainer &chunk = worldContainer.chunks[i];
+        ChunkCoords chunkContainingCamera;
+        chunkContainingCamera.x = int(floor(camera.Position.x / CHUNK_SIZE));
+        chunkContainingCamera.y = int(floor(camera.Position.y / CHUNK_SIZE));
+        chunkContainingCamera.z = int(floor(camera.Position.z / CHUNK_SIZE));
 
-                // Filling up the data of the chunk
+        ChunkCoords firstTickableChunk;
+        firstTickableChunk.x = chunkContainingCamera.x - worldContainer.simulationRadius - 1;
+        firstTickableChunk.y = chunkContainingCamera.y - worldContainer.simulationHeight - 1;
+        firstTickableChunk.z = chunkContainingCamera.z - worldContainer.simulationRadius - 1;
 
-                chunk.chunkID.x = loadedChunkCoord[i][0];
-                chunk.chunkID.y = loadedChunkCoord[i][1];
-                chunk.chunkID.z = loadedChunkCoord[i][2];
+        ChunkCoords firstRenderableChunk;
+        firstRenderableChunk.x = chunkContainingCamera.x - worldContainer.renderRadius - 1;
+        firstRenderableChunk.y = chunkContainingCamera.y - worldContainer.renderHeight - 1;
+        firstRenderableChunk.z = chunkContainingCamera.z - worldContainer.renderRadius - 1;
 
-                worldContainer.coordToIndexMap[worldContainer.coordsToKey(chunk.chunkID)] = i;
+        ChunkCoords lastTickableChunk;
+        lastTickableChunk.x = chunkContainingCamera.x + worldContainer.simulationRadius;
+        lastTickableChunk.y = chunkContainingCamera.y + worldContainer.simulationHeight;
+        lastTickableChunk.z = chunkContainingCamera.z + worldContainer.simulationRadius;
 
-                chunk.emptyChunk = 0;
-                chunk.unGeneratedChunk = 1;
-                chunk.unCompiledChunk = 1;
-                chunk.renderlck = 1;
+        ChunkCoords lastRenderableChunk;
+        lastRenderableChunk.x = chunkContainingCamera.x + worldContainer.renderRadius;
+        lastRenderableChunk.y = chunkContainingCamera.y + worldContainer.renderHeight;
+        lastRenderableChunk.z = chunkContainingCamera.z + worldContainer.renderRadius;
 
-                // Filling up neighbouring chunk indices
+        if (chunkContainingCamera.x != prevCameraChunk.x || chunkContainingCamera.y != prevCameraChunk.y || chunkContainingCamera.z != prevCameraChunk.z || firstRun == 0) {
+            if (firstRun == 0) {
+                for (int i = 0; i < worldContainer.chunks.size(); i++) {
+                    ChunkDataContainer &chunk = worldContainer.chunks[i];
 
-                for (int j = 0; j < 27; j++) {
-                    int z = j % 3;
-                    int y = (j / 3) % 3;
-                    int x = j / 9;
+                    chunk.chunkID.x = ((i % (4 * (worldContainer.renderRadius + 1) * (worldContainer.renderRadius + 1))) / (2 * (worldContainer.renderRadius + 1))) + firstRenderableChunk.x;
+                    chunk.chunkID.y = (i / (4 * (worldContainer.renderRadius + 1) * (worldContainer.renderRadius + 1))) + firstRenderableChunk.y;
+                    chunk.chunkID.z = (i % (2 * (worldContainer.renderRadius + 1))) + firstRenderableChunk.z;
 
-                    int crntNeighbour = worldContainer.getIndex(chunk.chunkID.x + x - 1, chunk.chunkID.y + y - 1, chunk.chunkID.z + z - 1);
-                    if (crntNeighbour != -1) {
-                        chunk.neighbouringChunkIndices[j] = crntNeighbour;
+                    worldContainer.coordToIndexMap[worldContainer.coordsToKey(chunk.chunkID)] = i;
 
-                        worldContainer.chunks[crntNeighbour].neighbouringChunkIndices[26 - j] = i;
-                    } else {
-                        chunk.neighbouringChunkIndices[j] = -1;
-                    }
-                }
-            }
-            firstRun = 1;
-        } else {
-            for (int i = 0; i < (RENDER_DISTANCE * RENDER_DISTANCE * RENDER_DISTANCE); i++) {
-            	ChunkDataContainer &chunk = worldContainer.chunks[i];
-
-                // Bad name, it's basically the coords of the chunk w.r.t the (bottom, rear, left)most chunk
-                std::array<int, 3> axisDistances {
-                    chunk.chunkID.x - cameraChunk.x,
-                    chunk.chunkID.y - cameraChunk.y,
-                    chunk.chunkID.z - cameraChunk.z,
-                };
-
-
-                // Checking if the current chunk is outside the renderred area and needs to be re-allocated
-                ChunkCoords newChunkID;
-                bool x = false;
-                if (!(axisDistances[0] < RENDER_DISTANCE && axisDistances[0] >= 0)) {
-                    int m = fastFloat::mod(axisDistances[0], RENDER_DISTANCE);
-                    newChunkID.x = cameraChunk.x + m;
-                    x = true;
-                } else {
-                	newChunkID.x = chunk.chunkID.x;
-                }
-
-                if (!(axisDistances[1] < RENDER_DISTANCE && axisDistances[1] >= 0)) {
-                    int m = fastFloat::mod(axisDistances[1], RENDER_DISTANCE);
-                    newChunkID.y = cameraChunk.y + m;
-                    x = true;
-                } else {
-                	newChunkID.y = chunk.chunkID.y;
-                }
-
-                if (!(axisDistances[2] < RENDER_DISTANCE && axisDistances[2] >= 0)) {
-                    int m = fastFloat::mod(axisDistances[2], RENDER_DISTANCE);
-                    newChunkID.z = cameraChunk.z + m;
-                    x = true;
-                } else {
-                	newChunkID.z = chunk.chunkID.z;
-                }
-
-                // Re-allocating the chunk
-                if (x) {
-
-                    // Yeeting it from the hashmap
-                    worldContainer.coordToIndexMap.erase(worldContainer.coordsToKey(chunk.chunkID));
-
-                    worldContainer.coordToIndexMap[worldContainer.coordsToKey(newChunkID)] = i;
-
-                    // Yeeting and re-filling its neighbouring chunk indices
                     for (int j = 0; j < 27; j++) {
                         int z = j % 3;
                         int y = (j / 3) % 3;
                         int x = j / 9;
 
-                        int prevNeighbour = worldContainer.getIndex(chunk.chunkID.x + x - 1, chunk.chunkID.y + y - 1, chunk.chunkID.z + z - 1);
-                        if (prevNeighbour != -1) {
-                            worldContainer.chunks[prevNeighbour].neighbouringChunkIndices[26 - j] = -1;
-                        }
+                        int crntNeighbour = worldContainer.getIndex(chunk.chunkID.x + x - 1, chunk.chunkID.y + y - 1, chunk.chunkID.z + z - 1);
+                        if (crntNeighbour != -1) {
+                            chunk.neighbouringChunkIndices[j] = crntNeighbour;
 
-                        int newNeighbour = worldContainer.getIndex(newChunkID.x + x - 1, newChunkID.y + y - 1, newChunkID.z + z - 1);
-                        if (newNeighbour != -1) {
-                            chunk.neighbouringChunkIndices[j] = newNeighbour;
-
-                            worldContainer.chunks[newNeighbour].neighbouringChunkIndices[26 - j] = i;
+                            worldContainer.chunks[crntNeighbour].neighbouringChunkIndices[26 - j] = i;
                         } else {
                             chunk.neighbouringChunkIndices[j] = -1;
                         }
                     }
 
-                    // Giving it new data
-                    chunk.chunkID = newChunkID;
+                    chunk.emptyChunk = false;
 
-                    chunk.unGeneratedChunk = 1;
-                    chunk.unCompiledChunk = 1;
-                    chunk.meshSize = 0;
-                    chunk.chunkData.clear();
-                    chunk.lightData.clear();
-                    chunk.lightUpdateInstructions.empty();
+                    chunk.unGeneratedChunk = true;
+                    chunk.unCompiledChunk = true;
 
-                    chunk.emptyChunk = 0;
-                    chunk.reUploadMesh = false;
+                    float distance = std::max(std::max(abs((chunk.chunkID.x * CHUNK_SIZE) - camera.Position.x + (CHUNK_SIZE / 2)), abs(((chunk.chunkID.y * CHUNK_SIZE) - camera.Position.y + (CHUNK_SIZE / 2)))), abs((chunk.chunkID.z * CHUNK_SIZE) - camera.Position.z + (CHUNK_SIZE / 2)));
+                    chunk.distance = distance;
+                    chunk.euclideanDistSquared =      (((chunk.chunkID.x * CHUNK_SIZE) - camera.Position.x + (CHUNK_SIZE / 2)) * ((chunk.chunkID.x * CHUNK_SIZE) - camera.Position.x + (CHUNK_SIZE / 2)))
+                                                    + (((chunk.chunkID.z * CHUNK_SIZE) - camera.Position.z + (CHUNK_SIZE / 2)) * ((chunk.chunkID.z * CHUNK_SIZE) - camera.Position.z + (CHUNK_SIZE / 2)));
 
-                    chunk.isSingleBlock = false;
-                    chunk.theBlock = 0;
+                    if ((firstTickableChunk.x <= chunk.chunkID.x && chunk.chunkID.x <= lastTickableChunk.x) && (firstTickableChunk.y <= chunk.chunkID.y && chunk.chunkID.y <= lastTickableChunk.y) && (firstTickableChunk.z <= chunk.chunkID.z && chunk.chunkID.z <= lastTickableChunk.z)) {
+                        chunk.chunkType = 0;
+                        // chunk.lightData.isEmpty = true;
+                    }
+
+                    unsigned int prevChunkLODlevel = chunk.chunkData.lodLevel;
+                    if (chunk.euclideanDistSquared <= worldContainer.LOD0distSquared)
+                        chunk.chunkData.lodLevel = 0;
+                    else if (chunk.euclideanDistSquared <= worldContainer.LOD1distSquared)
+                        chunk.chunkData.lodLevel = 1;
+                    else if (chunk.euclideanDistSquared <= worldContainer.LOD2distSquared)
+                        chunk.chunkData.lodLevel = 2;
+                    else
+                        chunk.chunkData.lodLevel = 3;
+                }
+                firstRun = true;
+            } else {
+                for (int i = 0; i < worldContainer.chunks.size(); i++) {
+                    ChunkDataContainer &chunk = worldContainer.chunks[i];
+
+                    // Bad name, it's basically the coords of the chunk w.r.t the (bottom, rear, left)most chunk
+                    ChunkCoords axisDistances {
+                        .x = chunk.chunkID.x - firstRenderableChunk.x,
+                        .y = chunk.chunkID.y - firstRenderableChunk.y,
+                        .z = chunk.chunkID.z - firstRenderableChunk.z,
+                    };
+
+
+                    // Checking if the current chunk is outside the renderred area and needs to be re-allocated
+                    ChunkCoords newChunkID;
+                    bool x = false;
+                    if (!(axisDistances.x < 2 * (worldContainer.renderRadius + 1) && axisDistances.x >= 0)) {
+                        int m = fastFloat::mod(axisDistances.x, 2 * (worldContainer.renderRadius + 1));
+                        newChunkID.x = firstRenderableChunk.x + m;
+                        x = true;
+                    } else {
+                        newChunkID.x = chunk.chunkID.x;
+                    }
+
+                    if (!(axisDistances.y < 2 * (worldContainer.renderHeight + 1) && axisDistances.y >= 0)) {
+                        int m = fastFloat::mod(axisDistances.y, 2 * (worldContainer.renderHeight + 1));
+                        newChunkID.y = firstRenderableChunk.y + m;
+                        x = true;
+                    } else {
+                        newChunkID.y = chunk.chunkID.y;
+                    }
+
+                    if (!(axisDistances.z < 2 * (worldContainer.renderRadius + 1) && axisDistances.z >= 0)) {
+                        int m = fastFloat::mod(axisDistances.z, 2 * (worldContainer.renderRadius + 1));
+                        newChunkID.z = firstRenderableChunk.z + m;
+                        x = true;
+                    } else {
+                        newChunkID.z = chunk.chunkID.z;
+                    }
+
+                    if (x) {
+
+                        // Yeeting it from the hashmap
+                        worldContainer.coordToIndexMap.erase(worldContainer.coordsToKey(chunk.chunkID));
+
+                        worldContainer.coordToIndexMap[worldContainer.coordsToKey(newChunkID)] = i;
+
+                        // Yeeting and re-filling its neighbouring chunk indices
+                        for (int j = 0; j < 27; j++) {
+                            int z = j % 3;
+                            int y = (j / 3) % 3;
+                            int x = j / 9;
+
+                            int prevNeighbour = worldContainer.getIndex(chunk.chunkID.x + x - 1, chunk.chunkID.y + y - 1, chunk.chunkID.z + z - 1);
+                            if (prevNeighbour != -1) {
+                                worldContainer.chunks[prevNeighbour].neighbouringChunkIndices[26 - j] = -1;
+                            }
+
+                            int newNeighbour = worldContainer.getIndex(newChunkID.x + x - 1, newChunkID.y + y - 1, newChunkID.z + z - 1);
+                            if (newNeighbour != -1) {
+                                chunk.neighbouringChunkIndices[j] = newNeighbour;
+
+                                worldContainer.chunks[newNeighbour].neighbouringChunkIndices[26 - j] = i;
+                            } else {
+                                chunk.neighbouringChunkIndices[j] = -1;
+                            }
+                        }
+
+                        // Giving it new data
+                        chunk.chunkID = newChunkID;
+
+                        chunk.lodRecompilation = false;
+                        chunk.unGeneratedChunk = true;
+                        chunk.unCompiledChunk = true;
+                        chunk.meshSize = 0;
+                        chunk.chunkData.clear();
+                        chunk.lightData.clear();
+                        chunk.lightData.isEmpty = true;
+                        chunk.lightUpdateInstructions.empty();
+
+                        chunk.contentsAreUseless = false;
+                        chunk.meshIsUseless = false;
+                        chunk.lightingIsUseless = false;
+
+                        for (auto &i : chunk.neighbouringChunkIndices) {
+                            worldContainer.chunks[i].unGeneratedChunk = true;
+                        }
+
+                        chunk.emptyChunk = false;
+                        chunk.reUploadMesh = false;
+                    }
+
+                    float distance = std::max(std::max(abs((chunk.chunkID.x * CHUNK_SIZE) - camera.Position.x + (CHUNK_SIZE / 2)), abs(((chunk.chunkID.y * CHUNK_SIZE) - camera.Position.y + (CHUNK_SIZE / 2)))), abs((chunk.chunkID.z * CHUNK_SIZE) - camera.Position.z + (CHUNK_SIZE / 2)));
+                    chunk.distance = distance;
+                    chunk.euclideanDistSquared =      (((chunk.chunkID.x * CHUNK_SIZE) - camera.Position.x + (CHUNK_SIZE / 2)) * ((chunk.chunkID.x * CHUNK_SIZE) - camera.Position.x + (CHUNK_SIZE / 2)))
+                                                    + (((chunk.chunkID.z * CHUNK_SIZE) - camera.Position.z + (CHUNK_SIZE / 2)) * ((chunk.chunkID.z * CHUNK_SIZE) - camera.Position.z + (CHUNK_SIZE / 2)));
+
+                    if ((firstTickableChunk.x <= chunk.chunkID.x && chunk.chunkID.x <= lastTickableChunk.x) && (firstTickableChunk.y <= chunk.chunkID.y && chunk.chunkID.y <= lastTickableChunk.y) && (firstTickableChunk.z <= chunk.chunkID.z && chunk.chunkID.z <= lastTickableChunk.z)) {
+                        if (chunk.chunkType > 0) {
+                            chunk.unGeneratedChunk = true;
+                            // chunk.unCompiledChunk = true;
+                        }
+                        chunk.chunkType = 0;
+                        // chunk.chunkData.lodLevel = 0;
+                        chunk.contentsAreUseless = false;
+                        chunk.meshIsUseless = false;
+                        chunk.lightingIsUseless = false;
+                    } else {
+                        // if (chunk.chunkType != 1)
+                        //     chunk.unCompiledChunk = true;
+                        chunk.chunkType = 1;
+                        // chunk.chunkData.lodLevel = 1;
+                    }
+
+                    unsigned int prevChunkLODlevel = chunk.chunkData.lodLevel;
+                    if (chunk.euclideanDistSquared <= worldContainer.LOD0distSquared)
+                        chunk.chunkData.lodLevel = 0;
+                    else if (chunk.euclideanDistSquared <= worldContainer.LOD1distSquared)
+                        chunk.chunkData.lodLevel = 1;
+                    else if (chunk.euclideanDistSquared <= worldContainer.LOD2distSquared)
+                        chunk.chunkData.lodLevel = 2;
+                    else
+                        chunk.chunkData.lodLevel = 3;
+
+                    if (chunk.chunkData.lodLevel != prevChunkLODlevel) {
+                        chunk.lodRecompilation = true;
+                        chunk.unCompiledChunk = true;
+                        if (chunk.chunkType == 1) {
+                            chunk.unGeneratedChunk = true;
+                            chunk.contentsAreUseless = false;
+                            chunk.meshIsUseless = false;
+                            chunk.lightingIsUseless = false;
+                            for (auto &i : chunk.neighbouringChunkIndices) {
+                                worldContainer.chunks[i].unGeneratedChunk = true;
+                            }
+                        }
+                    }
                 }
             }
         }
+        for (auto &chunk : worldContainer.chunks) {
+            if (chunk.chunkType == 1 && chunk.contentsAreUseless) {
+                for (int j = 0; j < 27; j++) {
+                    int neighbouringIndex = chunk.neighbouringChunkIndices[j];
+                    if (neighbouringIndex != -1) {
+                        if (worldContainer.chunks[neighbouringIndex].chunkType != 1 || !worldContainer.chunks[neighbouringIndex].contentsAreUseless)
+                            goto end;
+                    }
+                }
 
-        cameraChunk.x = int(floor(camera.Position.x / CHUNK_SIZE));
-        cameraChunk.y = int(floor(camera.Position.y / CHUNK_SIZE));
-        cameraChunk.z = int(floor(camera.Position.z / CHUNK_SIZE));
+                chunk.chunkData.clear();
+                chunk.lightData.clear();
+                chunk.lightData.isEmpty = true;
+
+                end:
+            }
+        }    
 
 
         // const auto start = std::chrono::high_resolution_clock::now();
-        if (cameraChunk.x != prevCameraChunk.x || cameraChunk.y != prevCameraChunk.y || cameraChunk.z != prevCameraChunk.z) {
-            for (ChunkDataContainer &chunk : worldContainer.chunks) {
-                // float distance = sqrt(pow((worldContainer.chunks[i].chunkID[0] * CHUNK_SIZE) - camPosX + (CHUNK_SIZE / 2), 2) + pow((worldContainer.chunks[i].chunkID[1] * CHUNK_SIZE) - camPosY + (CHUNK_SIZE / 2), 2) + pow((worldContainer.chunks[i].chunkID[2] * CHUNK_SIZE) - camPosZ + (CHUNK_SIZE / 2), 2));
-                float distance = std::max(std::max(abs((chunk.chunkID.x * CHUNK_SIZE) - camera.Position.x + (CHUNK_SIZE / 2)), abs(((chunk.chunkID.y * CHUNK_SIZE) - camera.Position.y + (CHUNK_SIZE / 2)))), abs((chunk.chunkID.z * CHUNK_SIZE) - camera.Position.z + (CHUNK_SIZE / 2)));
-                chunk.distance = distance;
-            }
-        }
 
-        prevCameraChunk = cameraChunk;
+        prevCameraChunk = chunkContainingCamera;
+
         // const auto end = std::chrono::high_resolution_clock::now();
  
         // const std::chrono::duration<double> diff = end - start;
@@ -226,9 +305,19 @@ void ChunkProcessManager::buildChunks() {
             chunkUpdateQueue.pop();
         } else {
             for (int i = 0; i < worldContainer.chunks.size(); i++) {
-                if (worldContainer.chunks[i].distance <= worldContainer.chunks[index].distance && worldContainer.chunks[i].unGeneratedChunk == 0 && worldContainer.chunks[i].unCompiledChunk == 1) {
+                ChunkDataContainer &chunk = worldContainer.chunks[i];
+                if (chunk.distance <= worldContainer.chunks[index].distance && chunk.unGeneratedChunk == false && chunk.unCompiledChunk == true) {
+                    for (int i : chunk.neighbouringChunkIndices) {
+                        if (i == -1) {
+                            chunk.unCompiledChunk = 1;
+                            chunk.meshSize = 0;
+                            goto skipUpdatingValue;
+                        }
+                    }
                     index = i;
                     iLetYouRun = true;
+
+                    skipUpdatingValue:
                 }
             }
         }
@@ -237,31 +326,45 @@ void ChunkProcessManager::buildChunks() {
         
         if (iLetYouRun) {
             if ((chunk.unCompiledChunk == 1 || chunk.forUpdate == 1) && chunk.unGeneratedChunk == 0) {
-                lighting.lightAO(chunk);
+                // lighting.lightAO(chunk);
+
+                // const auto start = std::chrono::high_resolution_clock::now();
 
                 int state = builder.buildChunk(chunk);
+                chunk.reUploadLight = true;
+
+                // const auto end = std::chrono::high_resolution_clock::now();
+ 
+                // const std::chrono::duration<double> diff = end - start;
+                // std::cout << "Meshing: " << diff << "\n";
             }
         }
     }
 }
 
 void ChunkProcessManager::generateChunks() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    // std::this_thread::sleep_for(std::chrono::milliseconds(250));
     while (run == 1) {
         int index = 0;
         for (int i = 0; i < worldContainer.chunks.size(); i++) {
-            if (worldContainer.chunks[i].distance <= worldContainer.chunks[index].distance && worldContainer.chunks[i].unGeneratedChunk == 1) {
+            // std::cout << "Info of " << worldContainer.chunks[i].chunkID.x << " " << worldContainer.chunks[i].chunkID.y << " " << worldContainer.chunks[i].chunkID.z << " unGenChk " << worldContainer.chunks[i].unGeneratedChunk << " " << worldContainer.chunks[i].distance << "\n";
+            if (worldContainer.chunks[i].distance <= worldContainer.chunks[index].distance && worldContainer.chunks[i].unGeneratedChunk == true) {
                 index = i;
             }
         }
 
         if (worldContainer.chunks.at(index).unGeneratedChunk == true) {
 
+            // std::cout << "Generated " << worldContainer.chunks[index].chunkID.x << " " << worldContainer.chunks[index].chunkID.y << " " << worldContainer.chunks[index].chunkID.z << "\n";
+
             generator.generateChunk(worldContainer.chunks[index].chunkData, worldContainer.chunks[index].chunkID);
             
-            worldContainer.chunks[index].unGeneratedChunk = 0;
-            worldContainer.chunks[index].unCompiledChunk = 1;
+            worldContainer.chunks[index].unGeneratedChunk = false;
 
+            if (worldContainer.chunks[index].lightData.isEmpty && worldContainer.chunks[index].chunkType == 0) {
+                worldContainer.chunks[index].lightData.init();
+                worldContainer.chunks[index].lightData.isEmpty = false;
+            }
         }
     }
 }

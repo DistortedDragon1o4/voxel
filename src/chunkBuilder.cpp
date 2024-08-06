@@ -5,37 +5,6 @@
 #include <thread>
 #include <vector>
 
-long WorldContainer::coordsToKey(const ChunkCoords coords) {
-    long result = (fastFloat::mod(coords.x, 2 * RENDER_DISTANCE) * 4 * RENDER_DISTANCE * RENDER_DISTANCE) + (fastFloat::mod(coords.y, 2 * RENDER_DISTANCE) * 2 * RENDER_DISTANCE) + fastFloat::mod(coords.z, 2 * RENDER_DISTANCE);
-    return result;
-}
-
-int WorldContainer::getIndex(const ChunkCoords chunkCoord) {
-    int index;
-    try {
-        index = coordToIndexMap.at(coordsToKey(chunkCoord));
-    } catch (const std::out_of_range& oor) {
-        //std::cerr << "Out of Range error: " << oor.what() << "\n";
-        return -1;
-    }
-    return index;
-}
-
-int WorldContainer::getIndex(const int chunkCoordX, const int chunkCoordY, const int chunkCoordZ) {
-    ChunkCoords chunkCoord;
-    chunkCoord.x = chunkCoordX;
-    chunkCoord.y = chunkCoordY;
-    chunkCoord.z = chunkCoordZ;
-    int index;
-    try {
-        index = coordToIndexMap.at(coordsToKey(chunkCoord));
-    } catch (const std::out_of_range& oor) {
-        //std::cerr << "Out of Range error: " << oor.what() << "\n";
-        return -1;
-    }
-    return index;
-}
-
 int ChunkBuilder::blockAt(int coordX, int coordY, int coordZ, ChunkDataContainer &crntChunk) {
     int a = 1;
     int b = 1;
@@ -43,23 +12,23 @@ int ChunkBuilder::blockAt(int coordX, int coordY, int coordZ, ChunkDataContainer
 
     if (coordX < 0) {
         a = 0;
-    } else if (coordX >= CHUNK_SIZE) {
+    } else if (coordX >= CHUNK_SIZE >> crntChunk.chunkData.lodLevel) {
         a = 2;
     }
     if (coordY < 0) {
         b = 0;
-    } else if (coordY >= CHUNK_SIZE) {
+    } else if (coordY >= CHUNK_SIZE >> crntChunk.chunkData.lodLevel) {
         b = 2;
     }
     if (coordZ < 0) {
         c = 0;
-    } else if (coordZ >= CHUNK_SIZE) {
+    } else if (coordZ >= CHUNK_SIZE >> crntChunk.chunkData.lodLevel) {
         c = 2;
     }
 
     int neighbourIndex = crntChunk.neighbouringChunkIndices[(a * 9) + (b * 3) + c];
     if (neighbourIndex != -1 && worldContainer.chunks[neighbourIndex].unGeneratedChunk == false) {
-        return worldContainer.chunks[neighbourIndex].chunkData.blockAtCoords(fastFloat::mod(coordX, CHUNK_SIZE), fastFloat::mod(coordY, CHUNK_SIZE), fastFloat::mod(coordZ, CHUNK_SIZE));
+        return worldContainer.chunks[neighbourIndex].chunkData.blockAtCoords(fastFloat::mod(coordX, CHUNK_SIZE >> crntChunk.chunkData.lodLevel), fastFloat::mod(coordY, CHUNK_SIZE >> crntChunk.chunkData.lodLevel), fastFloat::mod(coordZ, CHUNK_SIZE >> crntChunk.chunkData.lodLevel), crntChunk.chunkData.lodLevel);
     } else {
         discardChunk = true;
         return 0;
@@ -75,7 +44,7 @@ int ChunkBuilder::ambientOccIndex(int coordinates) {
 }
 
 void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, ChunkDataContainer &chunk) {
-    int blockID = chunk.chunkData.blockAtCoords(coordX, coordY, coordZ);
+    int blockID = blockAt(coordX, coordY, coordZ, chunk);
     Blocks &crntBlock = blocks.blocks[blockID];
 
     // this is the cull bitmap, 1 means the face is culled, 0 means the face is visible
@@ -119,16 +88,16 @@ void ChunkBuilder::combineFace(int coordX, int coordY, int coordZ, ChunkDataCont
             if ((temporaryMesh.at(faceType).size() == 0) || (previousBlockID != blockID) || (faceType > 3) || (fastFloat::atBit(prevCullMap, crntBlock.faceType[i])) || crntBlock.faceType[i] >= 6) {
                 int j = 8 * i;
                 std::vector<int> face = std::vector<int>(8);
-                face.at(0) = crntBlock.blockBitMap.at(j + 0) + offset;   face.at(1) = crntBlock.blockBitMap.at(j + 1);
-                face.at(2) = crntBlock.blockBitMap.at(j + 2) + offset;   face.at(3) = crntBlock.blockBitMap.at(j + 3);
-                face.at(4) = crntBlock.blockBitMap.at(j + 4) + offset;   face.at(5) = crntBlock.blockBitMap.at(j + 5);
-                face.at(6) = crntBlock.blockBitMap.at(j + 6) + offset;   face.at(7) = crntBlock.blockBitMap.at(j + 7);
+                face.at(0) = crntBlock.blockBitMap.at(j + 0) + offset;   face.at(1) = crntBlock.blockBitMap.at(j + 1) | (chunk.chunkData.lodLevel << 14);
+                face.at(2) = crntBlock.blockBitMap.at(j + 2) + offset;   face.at(3) = crntBlock.blockBitMap.at(j + 3) | (chunk.chunkData.lodLevel << 14);
+                face.at(4) = crntBlock.blockBitMap.at(j + 4) + offset;   face.at(5) = crntBlock.blockBitMap.at(j + 5) | (chunk.chunkData.lodLevel << 14);
+                face.at(6) = crntBlock.blockBitMap.at(j + 6) + offset;   face.at(7) = crntBlock.blockBitMap.at(j + 7) | (chunk.chunkData.lodLevel << 14);
                 
                 temporaryMesh.at(faceType).insert(temporaryMesh.at(faceType).end(), face.begin(), face.end());
             } else {
                 for (int j = 0; j < 4; j++) {
                     // std:: cout << temporaryMesh.at(faceType).size() << " " << j << " " << temporaryMesh.at(faceType).size() - 8 + (2 * j) << "\n";
-                    if (((crntBlock.blockBitMap.at((8 * i) + (2 * j)) & 0b11111) == 0b10000))
+                    if ((crntBlock.blockBitMap.at((8 * i) + (2 * j)) & 0b11111) == 0b10000)
                         temporaryMesh.at(faceType).at(temporaryMesh.at(faceType).size() - 8 + (2 * j)) += 0b10000;
                 }
             }
@@ -144,7 +113,7 @@ int ChunkBuilder::buildChunk(ChunkDataContainer &chunk) {
         temporaryMesh[i].clear();
 
     // Early abort in case chunk is filled with air
-    if (chunk.isSingleBlock && chunk.theBlock == 0) {
+    if (chunk.chunkData.isSingleBlock && chunk.chunkData.theBlock == 0) {
         chunk.unCompiledChunk = 0;
         chunk.forUpdate = 0;
         chunk.meshSize = 0;
@@ -158,21 +127,19 @@ int ChunkBuilder::buildChunk(ChunkDataContainer &chunk) {
             chunk.unCompiledChunk = 1;
             chunk.meshSize = 0;
             return -1;
-        } else {
-            if (worldContainer.chunks[i].unGeneratedChunk == true) {
-                chunk.unCompiledChunk = 1;
-                chunk.meshSize = 0;
-                return -1;
-            }
+        } else if (worldContainer.chunks[i].unGeneratedChunk/* || worldContainer.chunks[i].contentsAreUseless*/) {
+            chunk.unCompiledChunk = 1;
+            chunk.meshSize = 0;
+            return -1;
         }
     }
 
     chunk.mesh.clear();
 
-    for (int i = 0; i < CHUNK_SIZE; i++) {
-        for (int j = 0; j < CHUNK_SIZE; j++) {
-            for (int k = 0; k < CHUNK_SIZE; k++) {
-                if (chunk.chunkData.blockAtCoords(j, i, k) > 0) {
+    for (int i = 0; i < CHUNK_SIZE >> chunk.chunkData.lodLevel; i++) {
+        for (int j = 0; j < CHUNK_SIZE >> chunk.chunkData.lodLevel; j++) {
+            for (int k = 0; k < CHUNK_SIZE >> chunk.chunkData.lodLevel; k++) {
+                if (blockAt(j, i, k, chunk) > 0) {
                     combineFace(j, i, k, chunk);
                 }
                 // Abort mechanism in case a chunk gets unloaded mid-way
@@ -195,8 +162,9 @@ int ChunkBuilder::buildChunk(ChunkDataContainer &chunk) {
     for (int i = 0; i < 6; i++)
         chunk.mesh.insert(chunk.mesh.end(), temporaryMesh[i].begin(), temporaryMesh[i].end());
 
-    chunk.unCompiledChunk = 0;
-    chunk.forUpdate = 0;
+    chunk.lodRecompilation = false;
+    chunk.unCompiledChunk = false;
+    chunk.forUpdate = false;
     chunk.meshSize = chunk.mesh.size();
     chunk.reUploadMesh = true;
 

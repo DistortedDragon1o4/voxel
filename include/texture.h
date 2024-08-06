@@ -31,7 +31,7 @@ public:
     GLuint ID;
     GLenum type;
     int slot;
-    TextureArray(int slot, std::string directory, int start, int stop, std::string path);
+    TextureArray(int _slot, std::string directory, int start, int stop, std::string path);
 
     void TexUnit(Shader& shader, const char* uniform, GLuint unit);
     void Bind();

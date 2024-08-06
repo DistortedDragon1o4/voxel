@@ -15,6 +15,8 @@ struct MemRegUnit {
 	int z;
 	int memoryIndex;
 	int size;							// In bytes (size of the mesh)
+	int lightMemoryIndex;
+	int lightSize;						// In bytes (size of the mesh)
 };
 
 layout (binding = 0, std430) buffer DrawCommandBufferData {

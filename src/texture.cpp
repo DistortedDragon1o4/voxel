@@ -53,8 +53,8 @@ void Texture::Delete() {
 }
 
 
-TextureArray::TextureArray(int slot, std::string directory, int start, int stop, std::string path) {
-	slot = slot;
+TextureArray::TextureArray(int _slot, std::string directory, int start, int stop, std::string path) {
+	slot = _slot;
 	std::ustring imgData;
 	int widthImg, heightImg, numColCh;
 	stbi_set_flip_vertically_on_load(true);

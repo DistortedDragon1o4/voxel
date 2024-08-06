@@ -4,6 +4,7 @@ void HUD::generateMesh() {
     std::vector<float> vertices;
     std::vector<unsigned int> indices;
     int index = 0;
+    EBOsize = 0;
     for (int i = 0; i < list.size(); i++) {
         if (list.at(i).visible == true) {
             vertices.insert(vertices.end(), list.at(i).vertices.begin(), list.at(i).vertices.end());

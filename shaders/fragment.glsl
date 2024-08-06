@@ -1,12 +1,30 @@
 #version 460 core
 
-struct ChunkLightData {
-	int data[34 * 34 * 34];
+// struct ChunkLightData {
+// 	int data[34 * 34 * 34];
+// };
+
+// layout (binding = 4, std430) buffer LightDataBuffer {
+//  	ChunkLightData lightData[];
+// } lightDataBuffer;
+
+struct MemRegUnit {
+	int x;
+	int y;
+	int z;
+	int memoryIndex;
+	int size;							// In bytes (size of the mesh)
+	int lightMemoryIndex;
+	int lightSize;						// In bytes (size of the mesh)
 };
 
-layout (binding = 4, std430) buffer LightDataBuffer {
- 	ChunkLightData lightData[];
-} lightDataBuffer;
+layout (binding = 2, std430) buffer MemoryRegister {
+ 	MemRegUnit unit[];
+} memoryRegister;
+
+layout (binding = 3, std430) buffer MemoryBlock {
+	int v[];
+} memoryBlock;
 
 in flat int ERROR;
 
@@ -40,7 +58,8 @@ vec3 sunColor = vec3(0.9882f, 0.9450f, 0.8117f);
 float moonStrength = 1.0f;
 vec3 moonColor = vec3(0.6117f, 0.7450f, 0.7882f);
 
-float ambientLight = 0.0113f;
+// float ambientLight = 0.0113f;
+float ambientLight = 1.0f;
 
 float fog(float magnitude, float sharpness, float cutoff) {
 	float x = camDistance - cutoff;
@@ -77,6 +96,25 @@ float rand(vec3 co){
     return (fract(sin(dot(co, vec3(12.9898, 78.233, 45.857))) * 43758.5453) - 0.5) * 2.0;
 }
 
+int getLightValue(int lightIndex) {
+	// int lightMemoryIndex = (memoryRegister.unit[index].lightMemoryIndex / 4) + 1;
+	// int lightMemorySize = (memoryRegister.unit[index].lightSize / 4) - 1;
+	// int count = 0;
+	// for (int i = 0; i < lightMemorySize / 2; i++) {
+	// 	count += memoryBlock.v[lightMemoryIndex + (2 * i) + 1];
+	// 	if (count > lightIndex)
+	// 		return memoryBlock.v[lightMemoryIndex + (2 * i)];
+	// 	if (count >= (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2))
+	// 		break;
+	// }
+	// return 0;
+	int lightMemoryIndex = (memoryRegister.unit[index].lightMemoryIndex / 4) + 1;
+	if (memoryBlock.v[lightMemoryIndex] == 1)
+		return memoryBlock.v[lightMemoryIndex + 1];
+	else
+		return memoryBlock.v[lightMemoryIndex + 1 + lightIndex];
+}
+
 vec3 getLighting(vec3 position) {
 	vec3 surroundingLight[8];
 	ivec3 crntPosition = ivec3(floor(position - vec3(0.5)));
@@ -89,7 +127,10 @@ vec3 getLighting(vec3 position) {
 		x = i >> 2;
 		y = (i >> 1) & 1;
 		z = i & 1;
-		int lightVal = lightDataBuffer.lightData[index].data[((crntPosition.x + x + 1) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + ((crntPosition.y + y + 1) * (CHUNK_SIZE + 2)) + (crntPosition.z + z + 1)];
+		// int lightMemoryIndex = (memoryRegister.unit[index].lightMemoryIndex / 4) + 1;
+		// int lightVal = lightDataBuffer.lightData[index].data[((crntPosition.x + x + 1) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + ((crntPosition.y + y + 1) * (CHUNK_SIZE + 2)) + (crntPosition.z + z + 1)];
+		// int lightVal = memoryBlock.v[lightMemoryIndex + ((crntPosition.x + x + 1) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + ((crntPosition.y + y + 1) * (CHUNK_SIZE + 2)) + (crntPosition.z + z + 1)];
+		int lightVal = getLightValue(((crntPosition.x + x + 1) * (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2)) + ((crntPosition.y + y + 1) * (CHUNK_SIZE + 2)) + (crntPosition.z + z + 1));
 		surroundingLight[i].x = (lightVal >> 16) & 0xff;
 		surroundingLight[i].y = (lightVal >> 8) & 0xff;
 		surroundingLight[i].z = lightVal & 0xff;

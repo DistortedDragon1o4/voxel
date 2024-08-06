@@ -51,7 +51,3 @@ struct ChunkProperties {
     ChunkCoords chunkID;
     int index;
 };
-
-struct RegionDataContainer {
-    std::array<ChunkProperties, 64> chunkProperties;
-};
