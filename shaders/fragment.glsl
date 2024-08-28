@@ -40,6 +40,8 @@ in vec3 crntCoord;
 in vec4 ambientOcc;
 in vec2 ambientOccPos;
 
+in flat int lodLevel;
+
 out vec4 FragColor;
 
 
@@ -53,13 +55,13 @@ uniform vec3 sunDir;
 // DO NOT CHANGE
 int CHUNK_SIZE = 32;
 
-float sunStrength = 0.0f;
+float sunStrength = 1.0f;
 vec3 sunColor = vec3(0.9882f, 0.9450f, 0.8117f);
 float moonStrength = 1.0f;
 vec3 moonColor = vec3(0.6117f, 0.7450f, 0.7882f);
 
 // float ambientLight = 0.0113f;
-float ambientLight = 1.0f;
+float ambientLight = 0.88f;
 
 float fog(float magnitude, float sharpness, float cutoff) {
 	float x = camDistance - cutoff;
@@ -156,7 +158,7 @@ float gamma = 2.2;
 void main() {
 
 	// Sampling the texture
-	vec4 frag = texture(array, vec3(texCoord, blockID - 1));
+	vec4 frag = texture(array, vec3(texCoord, blockID - 1), float(lodLevel * lodLevel));
 
 	// Discarding transparent stuff
 	if (frag.a < 0.1)
@@ -177,7 +179,7 @@ void main() {
 
 
 
-	float fogStrength = fog(1.0f, 0.5f, float(16 * 19));
+	float fogStrength = fog(1.0f, 0.5f, float(32 * 4));
 
 
 

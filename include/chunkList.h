@@ -272,11 +272,29 @@ struct ChunkProcessManager {
 
 struct MemRegUnit {
 	ChunkCoords chunkID = {0, 0, 0};
+
 	unsigned int memoryIndex = 0;
-	unsigned int size = 0;							// In bytes (size of the mesh)
+	unsigned int size = 0;								// In bytes (size of the mesh)
+
 	unsigned int lightMemoryIndex = 0;
-	unsigned int lightSize = 0;						// In bytes (size of the mesh)
+	unsigned int lightSize = 0;							// In bytes (size of the lightData)
 };
+
+// struct MemRegUnit {
+// 	ChunkCoords chunkID = {0, 0, 0};
+
+// 	bool isPreviousOccupied = false;
+// 	unsigned int prevMemoryIndex = 0;
+// 	unsigned int prevSize = 0;							// In bytes (size of the mesh)
+// 	unsigned int memoryIndex = 0;
+// 	unsigned int size = 0;								// In bytes (size of the mesh)
+
+// 	bool isPreviousLightOccupied = false;
+// 	unsigned int prevLightMemoryIndex = 0;
+// 	unsigned int prevLightSize = 0;						// In bytes (size of the lightData)
+// 	unsigned int lightMemoryIndex = 0;
+// 	unsigned int lightSize = 0;							// In bytes (size of the lightData)
+// };
 
 struct BuddyMemoryAllocator {
 

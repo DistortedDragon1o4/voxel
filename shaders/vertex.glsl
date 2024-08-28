@@ -33,6 +33,8 @@ out vec3 crntCoord;
 out vec4 ambientOcc;
 out vec2 ambientOccPos;
 
+out flat int lodLevel;
+
 
 uniform mat4 cameraMatrix;
 uniform vec3 camPos;
@@ -75,7 +77,7 @@ void main() {
 
 	// Stuff left to do to fix precision issues
 
-	int lodLevel = int((dataBlock2 >> 14) & 0xf);
+	lodLevel = int((dataBlock2 >> 14) & 0xf);
 
 	const int coordMask = 0x3ff;
 	ivec3 coords = ivec3(((dataBlock1 >> 20) & coordMask), ((dataBlock1 >> 10) & coordMask), (dataBlock1 & coordMask));

@@ -1,3 +1,4 @@
+#include "gladContainer.h"
 #define GLAD_GL_IMPLEMENTATION
 
 #include "../include/HUD.h"
@@ -182,7 +183,7 @@ int main(int argc, char** argv) {
 	// glEnable(GL_BLEND);
 
 
-	VoxelGame voxel(width, height, glm::dvec3(7.0, 77.0, 7.0), dir);
+	VoxelGame voxel(width, height, glm::dvec3(1320.0, 152.0, -597.0), dir);
 
 	voxel.camera.breakBlock = std::bind(&PlayerChunkInterface::breakBlock, &voxel.interface);
 	voxel.camera.placeBlock = std::bind(&PlayerChunkInterface::placeBlock, &voxel.interface);
@@ -258,12 +259,21 @@ int main(int argc, char** argv) {
 			voxel.processManager.lighting.updateLight(voxel.worldContainer.chunks[i]);
 
 		// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+		glDepthFunc(GL_GREATER);
+		glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+		glClearDepth(0.0);
+
 		voxel.renderer.renderVoxelWorld();
+
 		// glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
+		glCullFace(GL_BACK);
 		glDisable(GL_CULL_FACE);
 
 		voxel.highlightCursor.renderCursor();
+
+		glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
 
 		glDisable(GL_DEPTH_TEST);
 

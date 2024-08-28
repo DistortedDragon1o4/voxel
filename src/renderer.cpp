@@ -91,7 +91,7 @@ void Renderer::regionCompileRoutine() {
 }
 
 void Renderer::preRenderVoxelWorld() {
-	camera.matrix(90.0, 0.001, 1024.0);
+	camera.matrix(90.0, 0.0078125, 1024.0);
 
 	frustumCuller.Activate();
 

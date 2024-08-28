@@ -110,7 +110,7 @@ void ChunkData::raw(std::vector<short> &rawBlockData) {
 short ChunkData::blockAtCoords(const BlockCoords coords, const int LODlevel) {
 	if (LODlevel == 0)
 		return blockAtCoords(coords.x, coords.y, coords.z);
-	if (LODlevel > lodLevel)
+	if (LODlevel >= lodLevel)
 		for (int i = 0; i < (1 << (3 * LODlevel)); i++) 
 			if (blockAtCoords(((coords.x << LODlevel) + (i >> (1 << (2 * LODlevel)))), ((coords.y << LODlevel)) + ((i >> (1 << (LODlevel))) & ((1 << (LODlevel)) - 1)), ((coords.z << LODlevel)) + (i & ((1 << (LODlevel)) - 1))) == 0)
 				return 0;
@@ -120,7 +120,7 @@ short ChunkData::blockAtCoords(const BlockCoords coords, const int LODlevel) {
 short ChunkData::blockAtCoords(const int _x, const int _y, const int _z, const int LODlevel) {
 	if (LODlevel == 0)
 		return blockAtCoords(_x, _y, _z);
-	if (LODlevel > lodLevel)
+	if (LODlevel >= lodLevel)
 		for (int i = 0; i < (1 << (3 * LODlevel)); i++) 
 			if (blockAtCoords(((_x << LODlevel) + (i >> (1 << (2 * LODlevel)))), ((_y << LODlevel)) + ((i >> (1 << (LODlevel))) & ((1 << (LODlevel)) - 1)), ((_z << LODlevel)) + (i & ((1 << (LODlevel)) - 1))) == 0)
 				return 0;

@@ -19,7 +19,7 @@ void ChunkGen::generateChunk(ChunkData &chunkData, ChunkCoords chunkCoords) {
 
     std::vector<float> heightmap(CHUNK_SIZE * CHUNK_SIZE);
     // fnFractal->GenPositionArray2D(heightmap.data(), int count, const float *xPosArray, const float *yPosArray, float xOffset, float yOffset, int seed)
-    fnFractal->GenUniformGrid2D(heightmap.data(), chunkCoords.x * CHUNK_SIZE, chunkCoords.z * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, frequency, seed);
+    fnGenerator->GenUniformGrid2D(heightmap.data(), chunkCoords.x * CHUNK_SIZE, chunkCoords.z * CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE, frequency, seed);
 
     int index = 0;
 
@@ -49,7 +49,7 @@ void ChunkGen::generateChunk(ChunkData &chunkData, ChunkCoords chunkCoords) {
                 // if (j + (CHUNK_SIZE * chunkCoords.y) < 32 * sin(float((i + (CHUNK_SIZE * chunkCoords.x)) / 32.0)))
                 //     rawBlockData[(i * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + k] = 1;
 
-                if (j + (CHUNK_SIZE * chunkCoords.y) < 96 * heightmap[i + (k * CHUNK_SIZE)])
+                if (j + (CHUNK_SIZE * chunkCoords.y) < 64 * heightmap[i + (k * CHUNK_SIZE)])
                     rawBlockData[(i * CHUNK_SIZE * CHUNK_SIZE) + (j * CHUNK_SIZE) + k] = 1;
 
                 // if (chunkCoords.y <= 0)

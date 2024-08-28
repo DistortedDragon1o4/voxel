@@ -1,5 +1,4 @@
 #include "../include/texture.h"
-#include "chunkList.h"
 
 Texture::Texture(const char* imagePath, GLenum texType, GLenum slot, GLenum format, GLenum pixelType, std::string path) {
     type = texType;
@@ -21,7 +20,7 @@ Texture::Texture(const char* imagePath, GLenum texType, GLenum slot, GLenum form
 	glActiveTexture(slot);
 	glBindTexture(texType, ID);
 
-	glTexParameteri(texType, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(texType, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
 	glTexParameteri(texType, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	glTexParameteri(texType, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -80,18 +79,15 @@ TextureArray::TextureArray(int _slot, std::string directory, int start, int stop
 	glTextureParameteri(ID, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTextureParameteri(ID, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-	glTextureStorage3D(ID, 1, GL_RGBA8, widthImg, heightImg, (stop - start));
-	glTextureSubImage3D(ID, 0, 0, 0, 0, widthImg, heightImg, (stop - start), GL_RGBA, GL_UNSIGNED_BYTE, imgData.c_str());
-
-	// glTextureParameteri(ID, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
-	// glTextureParameteri(ID, GL_TEXTURE_MAG_FILTER, GL_NEAREST_MIPMAP_LINEAR);
-
 	glTextureParameteri(ID, GL_TEXTURE_MAX_LEVEL, 4);
-	glTextureParameteri(ID, GL_TEXTURE_BASE_LEVEL, 2);
+	glTextureParameteri(ID, GL_TEXTURE_BASE_LEVEL, 0);
+
+	glTextureStorage3D(ID, 4, GL_RGBA8, widthImg, heightImg, (stop - start));
+	glTextureSubImage3D(ID, 0, 0, 0, 0, widthImg, heightImg, (stop - start), GL_RGBA, GL_UNSIGNED_BYTE, imgData.c_str());
 
 	glGenerateTextureMipmap(ID);
 
-	glTextureParameterf(ID, GL_TEXTURE_MAX_ANISOTROPY, 16.0f);
+	glTextureParameterf(ID, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16.0);
 
 	glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
 }

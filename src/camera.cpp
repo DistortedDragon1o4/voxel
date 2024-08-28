@@ -9,10 +9,20 @@ Camera::Camera(int &width, int &height, glm::dvec3 position) : width(width), hei
 
 void Camera::matrix(double FOVdeg, double nearPlane, double farPlane) {
 	glm::dmat4 view = glm::dmat4(1.0f);
-	glm::dmat4 projection = glm::dmat4(1.0f);
+	glm::dmat4 projection = glm::dmat4(0.0);
 
 	view = glm::lookAt(glm::dvec3(0), glm::dvec3(0) + Orientation, Up);
-	projection = glm::perspective(glm::radians(FOVmultiplier * FOVdeg), double(width) / double(height), nearPlane, farPlane);
+	// projection = glm::perspectiveFovZO(glm::radians(FOVmultiplier * FOVdeg), double(width), double(height), nearPlane, farPlane);
+
+	double fov = glm::radians(FOVmultiplier * FOVdeg);
+	double h = glm::cos(0.5 * fov) / glm::sin(0.5 * fov);
+	double w = h * height / width;
+
+	projection[0][0] = w;
+	projection[1][1] = h;
+	projection[2][2] = nearPlane / (farPlane - nearPlane);
+	projection[3][2] = (farPlane * nearPlane) / (farPlane - nearPlane);
+	projection[2][3] = -1.0;
 
 	cameraMatrix = projection * view;
 
