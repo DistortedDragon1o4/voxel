@@ -82,7 +82,7 @@ TextureArray::TextureArray(int _slot, std::string directory, int start, int stop
 	glTextureParameteri(ID, GL_TEXTURE_MAX_LEVEL, 4);
 	glTextureParameteri(ID, GL_TEXTURE_BASE_LEVEL, 0);
 
-	glTextureStorage3D(ID, 4, GL_RGBA8, widthImg, heightImg, (stop - start));
+	glTextureStorage3D(ID, 5, GL_RGBA8, widthImg, heightImg, (stop - start));
 	glTextureSubImage3D(ID, 0, 0, 0, 0, widthImg, heightImg, (stop - start), GL_RGBA, GL_UNSIGNED_BYTE, imgData.c_str());
 
 	glGenerateTextureMipmap(ID);
